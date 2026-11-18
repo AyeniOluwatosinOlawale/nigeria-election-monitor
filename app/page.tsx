@@ -90,7 +90,7 @@ function updateStateResult(
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 // INEC official figures — updated October 2026
-const TOTAL_PUS_2027 = 177299;
+const TOTAL_PUS_2027 = 274760;
 const TOTAL_PUS_2023 = 176846;
 const REGISTERED_VOTERS_2027 = 103_428_715;
 const REGISTERED_VOTERS_2023 = 93_469_008;
