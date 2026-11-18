@@ -8,7 +8,8 @@ import {
   getTotalAccredited,
   getTotalPUs,
 } from "@/lib/mock-results";
-import { fetchStateResults, fetchLGAResults } from "@/lib/db";
+import { fetchStateResults, fetchLGAResults, fetchOverVotedResults } from "@/lib/db";
+import type { OverVotedRecord } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { PARTIES, PARTY_MAP, STATES, STATE_MAP, SENATORIAL_DISTRICTS, CONSTITUENCY_COUNT } from "@/lib/nigeria-data";
 import NigeriaCartogram from "@/components/NigeriaCartogram";
@@ -359,6 +360,9 @@ export default function ElectionDashboard() {
   const [usingDemoData, setUsingDemoData] = useState(false);
 
   const [lgaResultsCache, setLgaResultsCache] = useState<Record<string, AggregateResult[]>>({});
+  const [selectedLGA, setSelectedLGA] = useState<string | null>(null);
+  const [stateDetailTab, setStateDetailTab] = useState<"lga" | "senate">("lga");
+  const [overVotedResults, setOverVotedResults] = useState<OverVotedRecord[]>([]);
 
   // Result state — null until loaded
   const [presidentialResults, setPresidentialResults] = useState<ElectionResult | null>(null);
@@ -457,12 +461,17 @@ export default function ElectionDashboard() {
     };
   }, [activeYear]);
 
+  // ── Load over-voted results for the active election ───────────────────────
+  useEffect(() => {
+    fetchOverVotedResults(`${activeTab}_${activeYear}`).then(setOverVotedResults);
+  }, [activeTab, activeYear]);
+
   // ── Load LGA results when a state is selected ────────────────────────────
   useEffect(() => {
+    setSelectedLGA(null);
     if (!selectedState) return;
     const cacheKey = `${activeTab}_${activeYear}_${selectedState}`;
     if (lgaResultsCache[cacheKey]) return;
-
     fetchLGAResults(`${activeTab}_${activeYear}`, selectedState).then((results) => {
       setLgaResultsCache((prev) => ({ ...prev, [cacheKey]: results }));
     });
@@ -605,6 +614,7 @@ export default function ElectionDashboard() {
                 onClick={() => {
                   setActiveYear(year);
                   setSelectedState(null);
+                  setSelectedLGA(null);
                 }}
                 className={
                   activeYear === year
@@ -653,6 +663,7 @@ export default function ElectionDashboard() {
                 onClick={() => {
                   setActiveTab(tab);
                   setSelectedState(null);
+                  setSelectedLGA(null);
                 }}
                 className={[
                   "flex items-center gap-2 px-5 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors",
@@ -830,121 +841,364 @@ export default function ElectionDashboard() {
         </div>
 
         {/* ── STATE DETAIL PANEL ───────────────────────────────────────── */}
-        {selectedStateData && (
-          <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-nigeria-green text-white px-5 py-4 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-lg">
-                  {selectedStateData.stateInfo.name} State — LGA Breakdown
-                </h3>
-                <div className="flex items-center gap-3 mt-1 text-sm text-white/80">
-                  <span>Capital: {selectedStateData.stateInfo.capital}</span>
-                  <span>·</span>
-                  <span>Zone: {selectedStateData.stateInfo.zone}</span>
-                  <span>·</span>
-                  <span>{selectedStateData.stateInfo.lgas} LGAs</span>
-                  <span>·</span>
-                  <StatusBadge status={selectedStateData.stateResult.status} />
-                  {selectedStateData.stateResult.overVoted && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold animate-pulse">
-                      ⚠ OVER-VOTED — Under Review
-                    </span>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedState(null)}
-                className="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-2 transition-colors"
-                aria-label="Close"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                  className="w-5 h-5"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+        {selectedStateData && (() => {
+          // Parties that have votes in this state (sorted by votes)
+          const stateParties = selectedStateData.stateResult.results
+            .filter((r) => r.votes > 0)
+            .slice(0, 4);
 
-            {/* State summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-gray-100 border-b border-gray-100">
-              {selectedStateData.stateResult.results.slice(0, 4).map((pr) => {
-                const party = PARTY_MAP[pr.partyCode];
-                return (
-                  <div key={pr.partyCode} className="px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className="w-3 h-3 rounded-sm"
-                        style={{ backgroundColor: party?.color ?? "#9CA3AF" }}
-                      />
-                      <span className="text-xs font-bold text-gray-700">{pr.partyCode}</span>
-                    </div>
-                    <div className="text-lg font-black text-nigeria-dark">
-                      {formatVotes(pr.votes)}
-                    </div>
-                    <div className="text-xs text-gray-500">{pr.percentage?.toFixed(1)}%</div>
+          // Senatorial districts for this state
+          const stateSenateDistricts = SENATORIAL_DISTRICTS.filter(
+            (d) => d.stateCode === selectedState
+          );
+
+          // For senate tab: estimate district totals by splitting state LGA data into thirds
+          const lgaResults = selectedStateData.lgaResults;
+          const senateLGAGroups: AggregateResult[][] = [[], [], []];
+          lgaResults.forEach((lga, i) => {
+            senateLGAGroups[Math.floor(i / Math.ceil(lgaResults.length / 3))]?.push(lga) ?? senateLGAGroups[2].push(lga);
+          });
+
+          // Selected LGA detail
+          const lgaDetail = selectedLGA
+            ? lgaResults.find((l) => l.name === selectedLGA)
+            : null;
+
+          return (
+            <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+
+              {/* ── Header with breadcrumb ── */}
+              <div className="bg-nigeria-green text-white px-5 py-4 flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  {/* Breadcrumb */}
+                  <div className="flex items-center gap-1.5 text-white/60 text-xs mb-1 flex-wrap">
+                    <button
+                      onClick={() => { setSelectedState(null); setSelectedLGA(null); }}
+                      className="hover:text-white transition-colors font-medium"
+                    >
+                      All States
+                    </button>
+                    <span>/</span>
+                    <button
+                      onClick={() => setSelectedLGA(null)}
+                      className={selectedLGA ? "hover:text-white transition-colors font-medium" : "text-white font-bold"}
+                    >
+                      {selectedStateData.stateInfo.name}
+                    </button>
+                    {selectedLGA && (
+                      <>
+                        <span>/</span>
+                        <span className="text-white font-bold truncate">{selectedLGA}</span>
+                      </>
+                    )}
                   </div>
-                );
-              })}
-            </div>
 
-            {/* LGA breakdown */}
-            {selectedStateData.lgaResults.length === 0 ? (
-              <div className="px-5 py-10 text-center text-gray-400">
-                <p className="text-sm font-medium">No LGA data loaded yet.</p>
-                <p className="text-xs mt-1">Results will appear here as INEC collates ward-level data.</p>
+                  <h3 className="font-bold text-lg leading-tight">
+                    {selectedLGA
+                      ? `${selectedLGA} LGA`
+                      : `${selectedStateData.stateInfo.name} State`}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1 text-sm text-white/70 flex-wrap">
+                    {!selectedLGA && (
+                      <>
+                        <span>Capital: {selectedStateData.stateInfo.capital}</span>
+                        <span>·</span>
+                        <span>Zone: {selectedStateData.stateInfo.zone}</span>
+                        <span>·</span>
+                        <span>{selectedStateData.stateInfo.lgas} LGAs</span>
+                        <span>·</span>
+                      </>
+                    )}
+                    <StatusBadge status={selectedLGA ? (lgaDetail?.status ?? "pending") : selectedStateData.stateResult.status} />
+                    {selectedStateData.stateResult.overVoted && !selectedLGA && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold animate-pulse">
+                        ⚠ OVER-VOTED
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setSelectedState(null); setSelectedLGA(null); }}
+                  className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-2 transition-colors shrink-0"
+                  aria-label="Close"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">LGA Name</th>
-                      <th className="text-left px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Leading Party</th>
-                      <th className="text-right px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Votes</th>
-                      <th className="text-right px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">%</th>
-                      <th className="text-center px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {selectedStateData.lgaResults.map((lga) => {
-                      const top = lga.results[0];
-                      const party = top ? PARTY_MAP[top.partyCode] : null;
+
+              {/* ── Party vote summary strip ── */}
+              {(() => {
+                const displayResults = selectedLGA && lgaDetail
+                  ? lgaDetail.results.filter((r) => r.votes > 0).slice(0, 4)
+                  : stateParties;
+                const totalVotes = displayResults.reduce((s, r) => s + r.votes, 0);
+                return (
+                  <div className="grid divide-x divide-gray-100 border-b border-gray-100"
+                    style={{ gridTemplateColumns: `repeat(${Math.min(displayResults.length, 4)}, 1fr)` }}>
+                    {displayResults.map((pr) => {
+                      const party = PARTY_MAP[pr.partyCode];
+                      const pct = totalVotes > 0 ? (pr.votes / totalVotes) * 100 : 0;
                       return (
-                        <tr key={lga.id} className="hover:bg-nigeria-light/30 transition-colors">
-                          <td className="px-4 py-2.5 font-semibold text-gray-800">{lga.name}</td>
-                          <td className="px-3 py-2.5">
-                            {party ? (
-                              <span
-                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-white text-xs font-bold"
-                                style={{ backgroundColor: party.color }}
-                              >
-                                {party.code}
-                              </span>
-                            ) : "—"}
-                          </td>
-                          <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-gray-800">
-                            {top ? top.votes.toLocaleString() : "—"}
-                          </td>
-                          <td className="px-3 py-2.5 text-right text-xs text-gray-600">
-                            {top?.percentage != null ? `${top.percentage.toFixed(1)}%` : "—"}
-                          </td>
-                          <td className="px-3 py-2.5 text-center">
-                            <StatusBadge status={lga.status} />
-                          </td>
-                        </tr>
+                        <div key={pr.partyCode} className="px-4 py-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: party?.color ?? "#9CA3AF" }} />
+                            <span className="text-xs font-bold text-gray-700">{pr.partyCode}</span>
+                          </div>
+                          <div className="text-lg font-black text-nigeria-dark tabular-nums">
+                            {formatVotes(pr.votes)}
+                          </div>
+                          <div className="text-xs text-gray-500">{pct.toFixed(1)}%</div>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                  </div>
+                );
+              })()}
+
+              {/* ── LGA detail view (when an LGA is clicked) ── */}
+              {selectedLGA && lgaDetail && (
+                <div className="px-5 py-4 bg-nigeria-light/30 border-b border-gray-100">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                    <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                      <div className="text-xs text-gray-500 font-medium">Accredited Voters</div>
+                      <div className="text-sm font-bold text-nigeria-dark">{lgaDetail.accreditedVoters.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                      <div className="text-xs text-gray-500 font-medium">Total PUs</div>
+                      <div className="text-sm font-bold text-nigeria-dark">{lgaDetail.totalPUs.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                      <div className="text-xs text-gray-500 font-medium">PUs Reported</div>
+                      <div className="text-sm font-bold text-nigeria-dark">{lgaDetail.reportedPUs.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                      <div className="text-xs text-gray-500 font-medium">Total Votes Cast</div>
+                      <div className="text-sm font-bold text-nigeria-dark">
+                        {lgaDetail.results.reduce((s, r) => s + r.votes, 0).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Per-party vote bars */}
+                  <div className="space-y-2">
+                    {lgaDetail.results.filter((r) => r.votes > 0).map((pr) => {
+                      const party = PARTY_MAP[pr.partyCode];
+                      return (
+                        <div key={pr.partyCode} className="flex items-center gap-3">
+                          <span className="w-10 text-xs font-bold text-gray-700 shrink-0">{pr.partyCode}</span>
+                          <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${pr.percentage ?? 0}%`, backgroundColor: party?.color ?? "#9CA3AF" }}
+                            />
+                          </div>
+                          <span className="text-xs font-mono text-gray-700 w-16 text-right shrink-0">
+                            {pr.votes.toLocaleString()}
+                          </span>
+                          <span className="text-xs text-gray-500 w-10 text-right shrink-0">
+                            {(pr.percentage ?? 0).toFixed(1)}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-xs text-gray-400 mt-3">
+                    Polling unit-level breakdown will appear here when OCR queue processes the INEC result sheets.
+                  </p>
+                </div>
+              )}
+
+              {/* ── Tabs: By LGA / By Senatorial District ── */}
+              {!selectedLGA && (
+                <div className="border-b border-gray-100 px-5">
+                  <div className="flex gap-0 -mb-px">
+                    {(["lga", "senate"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setStateDetailTab(tab)}
+                        className={[
+                          "px-4 py-2.5 text-xs font-bold border-b-2 transition-colors",
+                          stateDetailTab === tab
+                            ? "border-nigeria-green text-nigeria-green"
+                            : "border-transparent text-gray-400 hover:text-gray-600",
+                        ].join(" ")}
+                      >
+                        {tab === "lga" ? `LGAs (${selectedStateData.stateInfo.lgas})` : "Senatorial Districts"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── LGA tab content ── */}
+              {!selectedLGA && stateDetailTab === "lga" && (
+                lgaResults.length === 0 ? (
+                  <div className="px-5 py-10 text-center text-gray-400">
+                    <p className="text-sm font-medium">No LGA data loaded yet.</p>
+                    <p className="text-xs mt-1">Run seed_lga_2023.sql in Supabase to populate LGA results.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                          <th className="text-left px-4 py-3">LGA</th>
+                          {stateParties.map((pr) => {
+                            const p = PARTY_MAP[pr.partyCode];
+                            return (
+                              <th key={pr.partyCode} className="text-right px-3 py-3">
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: p?.color ?? "#9CA3AF" }} />
+                                  {pr.partyCode}
+                                </span>
+                              </th>
+                            );
+                          })}
+                          <th className="text-right px-3 py-3">Total</th>
+                          <th className="text-center px-3 py-3">Winner</th>
+                          <th className="text-center px-3 py-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {lgaResults.map((lga) => {
+                          const totalVotes = lga.results.reduce((s, r) => s + r.votes, 0);
+                          const winner = lga.results[0];
+                          const winnerParty = winner ? PARTY_MAP[winner.partyCode] : null;
+                          return (
+                            <tr
+                              key={lga.id}
+                              className="hover:bg-nigeria-light/40 transition-colors cursor-pointer"
+                              onClick={() => setSelectedLGA(lga.name)}
+                            >
+                              <td className="px-4 py-2.5">
+                                <div className="font-semibold text-gray-800 text-sm">{lga.name}</div>
+                                <div className="text-xs text-gray-400 mt-0.5">{lga.totalPUs} PUs · {lga.accreditedVoters.toLocaleString()} accredited</div>
+                              </td>
+                              {stateParties.map((sp) => {
+                                const pr = lga.results.find((r) => r.partyCode === sp.partyCode);
+                                const isWinner = pr?.partyCode === winner?.partyCode;
+                                return (
+                                  <td key={sp.partyCode} className={`px-3 py-2.5 text-right font-mono text-xs ${isWinner ? "font-bold text-gray-900" : "text-gray-500"}`}>
+                                    {pr ? pr.votes.toLocaleString() : "—"}
+                                  </td>
+                                );
+                              })}
+                              <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-gray-700">
+                                {totalVotes.toLocaleString()}
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                {winnerParty ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-bold" style={{ backgroundColor: winnerParty.color }}>
+                                    {winnerParty.code}
+                                  </span>
+                                ) : "—"}
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                <StatusBadge status={lga.status} />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              )}
+
+              {/* ── Senatorial District tab content ── */}
+              {!selectedLGA && stateDetailTab === "senate" && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                        <th className="text-left px-4 py-3">Senatorial District</th>
+                        {stateParties.map((pr) => {
+                          const p = PARTY_MAP[pr.partyCode];
+                          return (
+                            <th key={pr.partyCode} className="text-right px-3 py-3">
+                              <span className="inline-flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: p?.color ?? "#9CA3AF" }} />
+                                {pr.partyCode}
+                              </span>
+                            </th>
+                          );
+                        })}
+                        <th className="text-right px-3 py-3">Total</th>
+                        <th className="text-center px-3 py-3">Winner</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {stateSenateDistricts.map((district, di) => {
+                        // Sum LGA votes for this district's geographic third
+                        const districtLGAs = lgaResults.length > 0
+                          ? senateLGAGroups[di] ?? []
+                          : [];
+
+                        // If no LGA data, fall back to state total / num_districts
+                        const partyTotals: Record<string, number> = {};
+                        if (districtLGAs.length > 0) {
+                          for (const lga of districtLGAs) {
+                            for (const pr of lga.results) {
+                              partyTotals[pr.partyCode] = (partyTotals[pr.partyCode] ?? 0) + pr.votes;
+                            }
+                          }
+                        } else {
+                          const divBy = stateSenateDistricts.length || 1;
+                          for (const pr of stateParties) {
+                            partyTotals[pr.partyCode] = Math.round(pr.votes / divBy);
+                          }
+                        }
+
+                        const totalVotes = Object.values(partyTotals).reduce((s, v) => s + v, 0);
+                        const winnerId = Object.entries(partyTotals).sort((a, b) => b[1] - a[1])[0]?.[0];
+                        const winnerParty = winnerId ? PARTY_MAP[winnerId] : null;
+                        const isEstimated = districtLGAs.length === 0;
+
+                        return (
+                          <tr key={district.id} className="hover:bg-nigeria-light/30 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-gray-800">{district.name}</div>
+                              {isEstimated && (
+                                <div className="text-xs text-amber-500 mt-0.5">Estimated from state total</div>
+                              )}
+                            </td>
+                            {stateParties.map((sp) => {
+                              const votes = partyTotals[sp.partyCode] ?? 0;
+                              const isWinner = sp.partyCode === winnerId;
+                              return (
+                                <td key={sp.partyCode} className={`px-3 py-3 text-right font-mono text-xs ${isWinner ? "font-bold text-gray-900" : "text-gray-500"}`}>
+                                  {votes.toLocaleString()}
+                                </td>
+                              );
+                            })}
+                            <td className="px-3 py-3 text-right font-mono text-xs font-semibold text-gray-700">
+                              {totalVotes.toLocaleString()}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              {winnerParty ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-bold" style={{ backgroundColor: winnerParty.color }}>
+                                  {winnerParty.code}
+                                </span>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {lgaResults.length === 0 && (
+                    <div className="px-5 py-3 text-xs text-amber-600 bg-amber-50 border-t border-amber-100">
+                      District totals are estimated from state-level data. Run seed_lga_2023.sql to show LGA-level sums per district.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── SENATE / HOUSE sub-view ──────────────────────────────────── */}
         {(activeTab === "senate" || activeTab === "house_reps") && (
@@ -1057,6 +1311,91 @@ export default function ElectionDashboard() {
             </div>
           </div>
         )}
+        {/* ── FLAGGED OVER-VOTED RESULTS ───────────────────────────────── */}
+        <div className="mt-6 bg-white rounded-2xl shadow-sm border border-red-100 overflow-hidden">
+          <div className="bg-red-50 border-b border-red-100 px-5 py-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-red-600 text-xl font-black">⚠</span>
+              <div>
+                <h3 className="text-red-700 font-bold text-base">
+                  Flagged: Over-Voted Results
+                </h3>
+                <p className="text-red-500 text-xs mt-0.5">
+                  Results where total votes cast exceeds accredited voters — an INEC collation anomaly
+                </p>
+              </div>
+            </div>
+            <div className={`px-3 py-1 rounded-full text-xs font-bold ${overVotedResults.length > 0 ? "bg-red-600 text-white animate-pulse" : "bg-gray-100 text-gray-500"}`}>
+              {overVotedResults.length === 0 ? "None flagged" : `${overVotedResults.length} flagged`}
+            </div>
+          </div>
+
+          {overVotedResults.length === 0 ? (
+            <div className="px-5 py-10 text-center text-gray-400">
+              <div className="text-3xl mb-2">✅</div>
+              <p className="text-sm font-semibold text-gray-500">No over-voting detected</p>
+              <p className="text-xs mt-1 text-gray-400">
+                All reported results are within accredited voter counts for this election.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-red-50/60 border-b border-red-100 text-xs font-bold text-red-600 uppercase tracking-wide">
+                    <th className="text-left px-4 py-3">State</th>
+                    <th className="text-left px-4 py-3">LGA</th>
+                    <th className="text-right px-3 py-3">Accredited</th>
+                    <th className="text-right px-3 py-3">Votes Cast</th>
+                    <th className="text-right px-3 py-3 text-red-700">Excess</th>
+                    {["APC", "PDP", "LP", "NNPP"].map((pc) => (
+                      <th key={pc} className="text-right px-3 py-3 text-gray-500">
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: PARTY_MAP[pc]?.color ?? "#9CA3AF" }} />
+                          {pc}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-red-50">
+                  {overVotedResults.map((r, i) => {
+                    const stateName = STATE_MAP[r.stateCode]?.name ?? r.stateName;
+                    return (
+                      <tr key={i} className="hover:bg-red-50/40 transition-colors">
+                        <td className="px-4 py-2.5">
+                          <span className="font-semibold text-gray-800">{stateName}</span>
+                        </td>
+                        <td className="px-4 py-2.5 font-medium text-gray-700">{r.lgaName}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-xs text-gray-600">
+                          {r.accreditedVoters.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-gray-800">
+                          {r.totalVotesCast.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono text-xs font-black text-red-600">
+                          +{r.overage.toLocaleString()}
+                        </td>
+                        {["APC", "PDP", "LP", "NNPP"].map((pc) => {
+                          const party = r.parties.find((p) => p.partyCode === pc);
+                          return (
+                            <td key={pc} className="px-3 py-2.5 text-right font-mono text-xs text-gray-500">
+                              {party ? party.votes.toLocaleString() : "—"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div className="px-5 py-3 bg-red-50/40 border-t border-red-100 text-xs text-red-500">
+                These anomalies require investigation by INEC collation officers. Data sourced from INEC result sheets via OCR.
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ── QUEUE MONITOR ───────────────────────────────────────────── */}
         <div className="mt-6">
           <QueueMonitor />

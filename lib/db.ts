@@ -146,6 +146,63 @@ export async function fetchLGAResults(
   }
 }
 
+// ─── fetchOverVotedResults ───────────────────────────────────────────────────
+
+export interface OverVotedRecord {
+  stateCode: string;
+  stateName: string;
+  lgaName: string;
+  accreditedVoters: number;
+  totalVotesCast: number;
+  overage: number;
+  parties: { partyCode: string; votes: number }[];
+}
+
+export async function fetchOverVotedResults(
+  electionId: string
+): Promise<OverVotedRecord[]> {
+  try {
+    const { data, error } = await supabase
+      .from('ng_election_lga_results')
+      .select('*')
+      .eq('election_id', electionId)
+      .eq('over_voted', true)
+      .order('state_code');
+
+    if (error) {
+      console.error(`[db] fetchOverVotedResults error:`, error.message);
+      return [];
+    }
+    if (!data || data.length === 0) return [];
+
+    // Group by state+LGA
+    const grouped: Record<string, LGAResultRow[]> = {};
+    for (const row of data as LGAResultRow[]) {
+      const key = `${row.state_code}__${row.lga_name}`;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(row);
+    }
+
+    return Object.values(grouped).map((rows) => {
+      const ref = rows[0];
+      const parties = rows.map((r) => ({ partyCode: r.party_code, votes: r.votes }));
+      const totalVotesCast = parties.reduce((s, p) => s + p.votes, 0);
+      return {
+        stateCode: ref.state_code,
+        stateName: ref.state_code,
+        lgaName: ref.lga_name,
+        accreditedVoters: ref.accredited_voters,
+        totalVotesCast,
+        overage: totalVotesCast - ref.accredited_voters,
+        parties,
+      };
+    });
+  } catch (err) {
+    console.error(`[db] fetchOverVotedResults unexpected error:`, err);
+    return [];
+  }
+}
+
 // ─── groupRowsByState ────────────────────────────────────────────────────────
 // Groups flat party rows into AggregateResult objects keyed by state_code.
 
