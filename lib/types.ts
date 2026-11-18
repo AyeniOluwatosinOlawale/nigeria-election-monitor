@@ -7,6 +7,7 @@ export interface Party {
   name: string;
   color: string;
   shortName?: string;
+  logo?: string;
 }
 
 export interface NigeriaState {

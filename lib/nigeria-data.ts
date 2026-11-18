@@ -1,20 +1,33 @@
 import type { Party, NigeriaState, SenatorialDistrict, Zone } from "./types";
 
+// INEC-registered parties as of February 2026 (21 total)
+// * = court-ordered deregistration pending
+// Logo URLs: Wikipedia Special:FilePath redirects to Wikimedia CDN
+const WP = "https://en.wikipedia.org/wiki/Special:FilePath/";
 export const PARTIES: Party[] = [
-  { code: "APC", name: "All Progressives Congress", color: "#1E40AF", shortName: "APC" },
-  { code: "PDP", name: "Peoples Democratic Party", color: "#DC2626", shortName: "PDP" },
-  { code: "LP", name: "Labour Party", color: "#16A34A", shortName: "LP" },
-  { code: "NNPP", name: "New Nigeria Peoples Party", color: "#D97706", shortName: "NNPP" },
-  { code: "ADC", name: "African Democratic Congress", color: "#7C3AED", shortName: "ADC" },
-  { code: "SDP", name: "Social Democratic Party", color: "#0891B2", shortName: "SDP" },
-  { code: "APGA", name: "All Progressives Grand Alliance", color: "#F59E0B", shortName: "APGA" },
-  { code: "YPP", name: "Young Progressives Party", color: "#EC4899", shortName: "YPP" },
-  { code: "AA", name: "Action Alliance", color: "#F97316", shortName: "AA" },
-  { code: "ZLP", name: "Zenith Labour Party", color: "#84CC16", shortName: "ZLP" },
-  { code: "BOOT", name: "Boot Party", color: "#06B6D4", shortName: "BOOT" },
-  { code: "NRM", name: "National Rescue Movement", color: "#8B5CF6", shortName: "NRM" },
-  { code: "PRP", name: "Peoples Redemption Party", color: "#059669", shortName: "PRP" },
-  { code: "OTHERS", name: "Other Parties", color: "#9CA3AF", shortName: "Others" },
+  { code: "APC",  name: "All Progressives Congress",       color: "#1E40AF", shortName: "APC",    logo: `${WP}All_Progressives_Congress_logo.png`           },
+  { code: "PDP",  name: "Peoples Democratic Party",        color: "#DC2626", shortName: "PDP",    logo: `${WP}Peoples_Democratic_Party_(Nigeria)_logo.png`  },
+  { code: "LP",   name: "Labour Party",                    color: "#16A34A", shortName: "LP",     logo: `${WP}Labour_Party_Nigeria_logo.png`                },
+  { code: "NNPP", name: "New Nigeria Peoples Party",       color: "#D97706", shortName: "NNPP",   logo: `${WP}New_Nigeria_Peoples_Party_logo.png`           },
+  { code: "SDP",  name: "Social Democratic Party",         color: "#0891B2", shortName: "SDP",    logo: `${WP}Social_Democratic_Party_Nigeria_logo.png`     },
+  { code: "APGA", name: "All Progressives Grand Alliance", color: "#F59E0B", shortName: "APGA",   logo: `${WP}All_Progressives_Grand_Alliance_logo.png`     },
+  { code: "YPP",  name: "Young Progressives Party",        color: "#EC4899", shortName: "YPP",    logo: `${WP}Young_Progressives_Party_Nigeria_logo.png`    },
+  { code: "PRP",  name: "Peoples Redemption Party",        color: "#059669", shortName: "PRP",    logo: `${WP}Peoples_Redemption_Party_Nigeria_logo.png`    },
+  { code: "NRM",  name: "National Rescue Movement",        color: "#8B5CF6", shortName: "NRM"  },
+  { code: "BP",   name: "Boot Party",                      color: "#06B6D4", shortName: "BP"   },
+  { code: "ADP",  name: "Action Democratic Party",         color: "#7C3AED", shortName: "ADP",    logo: `${WP}Action_Democratic_Party_Nigeria_logo.png`     },
+  { code: "AAC",  name: "African Action Congress",         color: "#BE185D", shortName: "AAC",    logo: `${WP}African_Action_Congress_logo.png`             },
+  { code: "APM",  name: "Allied Peoples Movement",         color: "#B45309", shortName: "APM"  },
+  { code: "YP",   name: "Youth Party",                     color: "#0D9488", shortName: "YP"   },
+  { code: "DLA",  name: "Democratic Leadership Alliance",  color: "#6366F1", shortName: "DLA"  },
+  // Deregistration pending — court orders, INEC appeal ongoing
+  { code: "ADC",  name: "African Democratic Congress *",   color: "#64748B", shortName: "ADC",    logo: `${WP}African_Democratic_Congress_Nigeria_logo.png` },
+  { code: "A",    name: "Accord *",                        color: "#78716C", shortName: "A",      logo: `${WP}Accord_Party_Nigeria_logo.png`                },
+  { code: "AA",   name: "Action Alliance *",               color: "#71717A", shortName: "AA",     logo: `${WP}Action_Alliance_Nigeria_logo.png`             },
+  { code: "ZLP",  name: "Zenith Labour Party *",           color: "#6B7280", shortName: "ZLP",    logo: `${WP}Zenith_Labour_Party_logo.png`                 },
+  { code: "APP",  name: "Action Peoples Party *",          color: "#A8A29E", shortName: "APP"  },
+  { code: "NDC",  name: "Nigeria Democratic Congress *",   color: "#9CA3AF", shortName: "NDC"  },
+  { code: "OTHERS", name: "Other Parties",                 color: "#D1D5DB", shortName: "Others" },
 ];
 
 export const PARTY_MAP: Record<string, Party> = Object.fromEntries(

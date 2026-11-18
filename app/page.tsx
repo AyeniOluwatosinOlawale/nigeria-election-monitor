@@ -13,7 +13,7 @@ import type { OverVotedRecord, PUResult } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { PARTIES, PARTY_MAP, STATES, STATE_MAP, SENATORIAL_DISTRICTS, CONSTITUENCY_COUNT } from "@/lib/nigeria-data";
 import NigeriaCartogram from "@/components/NigeriaCartogram";
-import PartyBar from "@/components/PartyBar";
+import PartyBar, { PartyBadge } from "@/components/PartyBar";
 import StatsStrip from "@/components/StatsStrip";
 import QueueMonitor from "@/components/QueueMonitor";
 
@@ -89,7 +89,11 @@ function updateStateResult(
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TOTAL_PUS = 176606;
+// INEC official figures — updated October 2026
+const TOTAL_PUS_2027 = 177299;
+const TOTAL_PUS_2023 = 176846;
+const REGISTERED_VOTERS_2027 = 103_428_715;
+const REGISTERED_VOTERS_2023 = 93_469_008;
 
 const ELECTION_LABELS: Record<ElectionType, string> = {
   presidential: "Presidential",
@@ -157,10 +161,10 @@ function LiveClock() {
   return (
     <div className="text-right">
       <div className="text-white font-mono text-sm font-semibold">
-        {now.toLocaleDateString("en-NG", { weekday: "short", year: "numeric", month: "short", day: "numeric" })}
+        {now.toLocaleDateString("en-NG", { weekday: "short", year: "numeric", month: "short", day: "numeric", timeZone: "Africa/Lagos" })}
       </div>
       <div className="text-white font-mono text-lg font-bold tabular-nums">
-        {now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        {now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Africa/Lagos" })}
       </div>
     </div>
   );
@@ -364,6 +368,7 @@ export default function ElectionDashboard() {
   const [stateDetailTab, setStateDetailTab] = useState<"lga" | "senate">("lga");
   const [overVotedResults, setOverVotedResults] = useState<OverVotedRecord[]>([]);
   const [puResultsCache, setPuResultsCache] = useState<Record<string, PUResult[]>>({});
+  const [puSearchQuery, setPuSearchQuery] = useState("");
 
   // Result state — null until loaded
   const [presidentialResults, setPresidentialResults] = useState<ElectionResult | null>(null);
@@ -549,10 +554,7 @@ export default function ElectionDashboard() {
     [activeResults]
   );
 
-  const totalRegistered = useMemo(
-    () => STATES.reduce((sum, s) => sum + (s.registeredVoters ?? 0), 0),
-    []
-  );
+  const totalRegistered = activeYear === 2027 ? REGISTERED_VOTERS_2027 : REGISTERED_VOTERS_2023;
 
   // The ticker always uses presidential results for context
   const tickerByState = useMemo(
@@ -574,9 +576,12 @@ export default function ElectionDashboard() {
               <div className="rounded overflow-hidden border border-white/20">
                 <NigerianFlag width={30} height={20} />
               </div>
-              <h1 className="text-white font-black text-base leading-tight">
-                NMYE 2027
-              </h1>
+              <div>
+                <h1 className="text-white font-black text-sm leading-tight">
+                  Nigerians Monitor Your Elections
+                </h1>
+                <p className="text-white/70 text-[10px] font-light">Your vote must count</p>
+              </div>
             </div>
             <div className="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow">
               <span className="w-1.5 h-1.5 rounded-full bg-white live-dot" />
@@ -617,7 +622,7 @@ export default function ElectionDashboard() {
 
       {/* ── STATS STRIP ─────────────────────────────────────────────── */}
       <StatsStrip
-        totalPUs={TOTAL_PUS}
+        totalPUs={activeYear === 2027 ? TOTAL_PUS_2027 : TOTAL_PUS_2023}
         reportedPUs={statesReportedPUs}
         registeredVoters={totalRegistered}
         accreditedVoters={totalAccredited}
@@ -769,8 +774,8 @@ export default function ElectionDashboard() {
                 {sortedParties.length === 0 ? (
                   <div className="py-12 text-center text-gray-400">
                     <div className="text-4xl mb-3">🗳️</div>
-                    <p className="text-sm font-semibold text-gray-500">No results yet</p>
-                    <p className="text-xs mt-1">Results will appear here as INEC begins collation</p>
+                    <p className="text-sm font-semibold text-gray-500">No results yet.</p>
+                    <p className="text-xs mt-1">Data loads as INEC begins collation.</p>
                   </div>
                 ) : (
                   sortedParties.map(({ party, votes, pct, statesLed }, idx) => (
@@ -842,17 +847,14 @@ export default function ElectionDashboard() {
                     (p) => partyStateCounts[p.code] && partyStateCounts[p.code] > 0
                   ).map((p) => (
                     <div key={p.code} className="flex items-center gap-1.5">
-                      <span
-                        className="w-3 h-3 rounded-sm inline-block shrink-0"
-                        style={{ backgroundColor: p.color }}
-                      />
+                      <PartyBadge party={p} size="sm" />
                       <span className="text-xs text-gray-700 font-medium">
                         {p.code} ({partyStateCounts[p.code]})
                       </span>
                     </div>
                   ))}
                   <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-sm bg-gray-300 inline-block" />
+                    <span className="w-6 h-6 rounded-sm bg-gray-300 inline-block" />
                     <span className="text-xs text-gray-500">Pending</span>
                   </div>
                 </div>
@@ -918,7 +920,7 @@ export default function ElectionDashboard() {
                   return (
                     <div key={pr.partyCode} className="px-4 py-3">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: party?.color ?? "#9CA3AF" }} />
+                        {party && <PartyBadge party={party} size="sm" />}
                         <span className="text-xs font-bold text-gray-700">{pr.partyCode}</span>
                       </div>
                       <div className="text-lg font-black text-nigeria-dark tabular-nums">{formatVotes(pr.votes)}</div>
@@ -982,7 +984,7 @@ export default function ElectionDashboard() {
                               <tr
                                 key={lga.id}
                                 className={`border-b border-gray-50 cursor-pointer transition-colors ${isExpanded ? "bg-nigeria-light/50" : "hover:bg-nigeria-light/30"}`}
-                                onClick={() => setSelectedLGA(isExpanded ? null : lga.name)}
+                                onClick={() => { setSelectedLGA(isExpanded ? null : lga.name); setPuSearchQuery(""); }}
                               >
                                 <td className="px-4 py-2.5 text-gray-400 text-xs">
                                   <span className={`inline-block transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
@@ -1017,11 +1019,80 @@ export default function ElectionDashboard() {
                                   <td colSpan={stateParties.length + 5} className="p-0 bg-gray-50 border-b border-gray-200">
                                     {puRows.length === 0 ? (
                                       <div className="px-10 py-4 text-xs text-gray-400 italic">Loading polling units…</div>
-                                    ) : (
+                                    ) : (() => {
+                                      const q = puSearchQuery.toLowerCase().trim();
+                                      const filteredPUs = q
+                                        ? puRows.filter((pu) =>
+                                            pu.puName.toLowerCase().includes(q) ||
+                                            pu.puCode.toLowerCase().includes(q)
+                                          )
+                                        : puRows;
+                                      return (
+                                      <>
+                                      <div className="px-10 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+                                        <div className="relative flex-1 max-w-xs">
+                                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                            <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+                                          </svg>
+                                          <input
+                                            type="text"
+                                            placeholder="Search polling units…"
+                                            value={puSearchQuery}
+                                            onChange={(e) => setPuSearchQuery(e.target.value)}
+                                            className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green"
+                                          />
+                                        </div>
+                                        <span className="text-[10px] text-gray-400 shrink-0">
+                                          {filteredPUs.length} of {puRows.length} PUs
+                                        </span>
+                                        <button
+                                          onClick={() => {
+                                            const stateName = selectedStateData?.stateInfo.name ?? selectedState ?? "";
+                                            const partyHeaders = stateParties.map((sp) => sp.partyCode).join(",");
+                                            const header = `State,LGA,Registration Area,Ward,PU Code,PU Name,Accredited,${partyHeaders},Total Votes,Winner`;
+                                            const rows = puRows.map((pu) => {
+                                              const wardCode = pu.puCode.split("/")[2] ?? "";
+                                              const partyVotes = stateParties.map((sp) => {
+                                                const pr = pu.parties.find((p) => p.partyCode === sp.partyCode);
+                                                return pr?.votes ?? 0;
+                                              }).join(",");
+                                              const winner = pu.parties[0]?.partyCode ?? "";
+                                              const ra = pu.registrationArea || `Ward ${wardCode}`;
+                                              return [
+                                                `"${stateName}"`,
+                                                `"${lga.name}"`,
+                                                `"${ra}"`,
+                                                `"Ward ${wardCode}"`,
+                                                `"${pu.puCode}"`,
+                                                `"${pu.puName}"`,
+                                                pu.accreditedVoters,
+                                                partyVotes,
+                                                pu.totalVotes,
+                                                winner,
+                                              ].join(",");
+                                            });
+                                            const csv = [header, ...rows].join("\n");
+                                            const blob = new Blob([csv], { type: "text/csv" });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement("a");
+                                            a.href = url;
+                                            a.download = `${stateName}_${lga.name}_PU_Results_${activeYear}.csv`.replace(/\s+/g, "_");
+                                            a.click();
+                                            URL.revokeObjectURL(url);
+                                          }}
+                                          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-nigeria-green border border-nigeria-green/30 rounded-lg hover:bg-nigeria-green hover:text-white transition-colors shrink-0"
+                                        >
+                                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                                            <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+                                            <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+                                          </svg>
+                                          Download CSV
+                                        </button>
+                                      </div>
                                       <table className="w-full text-xs">
                                         <thead>
                                           <tr className="bg-gray-100 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-                                            <th className="text-left px-10 py-2">Polling Unit</th>
+                                            <th className="text-left px-10 py-2">Polling Unit Name / Code</th>
                                             <th className="text-right px-3 py-2">Accredited</th>
                                             {stateParties.map((sp) => (
                                               <th key={sp.partyCode} className="text-right px-3 py-2 font-bold" style={{ color: PARTY_MAP[sp.partyCode]?.color ?? "#9CA3AF" }}>
@@ -1033,40 +1104,72 @@ export default function ElectionDashboard() {
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
-                                          {puRows.map((pu) => {
-                                            const puWinner = pu.parties[0];
-                                            const puWinnerParty = puWinner ? PARTY_MAP[puWinner.partyCode] : null;
-                                            return (
-                                              <tr key={pu.puCode} className={pu.overVoted ? "bg-red-50" : "hover:bg-white"}>
-                                                <td className="px-10 py-1.5">
-                                                  <div className="font-medium text-gray-700 leading-tight">{pu.puName}</div>
-                                                  <div className="text-gray-400 font-mono text-[10px]">{pu.puCode}</div>
-                                                  {pu.overVoted && <span className="text-red-600 text-[10px] font-bold">⚠ over-voted</span>}
-                                                </td>
-                                                <td className="px-3 py-1.5 text-right font-mono text-gray-500">{pu.accreditedVoters.toLocaleString()}</td>
-                                                {stateParties.map((sp) => {
-                                                  const pr = pu.parties.find((p) => p.partyCode === sp.partyCode);
-                                                  const isW = pr?.partyCode === puWinner?.partyCode;
+                                          {filteredPUs.length === 0 && (
+                                            <tr><td colSpan={stateParties.length + 4} className="px-10 py-4 text-xs text-gray-400 italic text-center">No polling units match "{puSearchQuery}"</td></tr>
+                                          )}
+                                          {(() => {
+                                            // Group PUs by registration area
+                                            const raGroups: { raName: string; wardCode: string; pus: PUResult[] }[] = [];
+                                            let lastRA = "";
+                                            for (const pu of filteredPUs) {
+                                              const wardCode = pu.puCode.split("/")[2] ?? "00";
+                                              const raName = pu.registrationArea || `Ward ${wardCode}`;
+                                              if (raName !== lastRA) {
+                                                raGroups.push({ raName, wardCode, pus: [] });
+                                                lastRA = raName;
+                                              }
+                                              raGroups[raGroups.length - 1].pus.push(pu);
+                                            }
+                                            return raGroups.map(({ raName, wardCode, pus: wardPUs }) => (
+                                              <>
+                                                <tr key={raName} className="bg-nigeria-light/60 border-b border-nigeria-green/10">
+                                                  <td colSpan={stateParties.length + 4} className="px-10 py-1.5">
+                                                    <div className="flex items-center gap-3">
+                                                      <span className="text-[11px] font-black text-nigeria-green uppercase tracking-widest">{raName}</span>
+                                                      <span className="text-[10px] text-gray-400 font-mono bg-gray-100 px-1.5 py-0.5 rounded">Ward {wardCode}</span>
+                                                      <span className="text-[10px] text-gray-400">{wardPUs.length} PU{wardPUs.length !== 1 ? "s" : ""}</span>
+                                                    </div>
+                                                  </td>
+                                                </tr>
+                                                {wardPUs.map((pu) => {
+                                                  const puWinner = pu.parties[0];
+                                                  const puWinnerParty = puWinner ? PARTY_MAP[puWinner.partyCode] : null;
                                                   return (
-                                                    <td key={sp.partyCode} className={`px-3 py-1.5 text-right font-mono ${isW ? "font-bold text-gray-900" : "text-gray-500"}`}>
-                                                      {pr ? pr.votes.toLocaleString() : "—"}
-                                                    </td>
+                                                    <tr key={pu.puCode} className={pu.overVoted ? "bg-red-50" : "hover:bg-white"}>
+                                                      <td className="px-10 py-1.5">
+                                                        <div className="font-medium text-gray-700 leading-tight">{pu.puName}</div>
+                                                        <div className="text-gray-400 font-mono text-[10px]">{pu.puCode}</div>
+                                                        {pu.overVoted && <span className="text-red-600 text-[10px] font-bold">⚠ over-voted</span>}
+                                                      </td>
+                                                      <td className="px-3 py-1.5 text-right font-mono text-gray-500">{pu.accreditedVoters.toLocaleString()}</td>
+                                                      {stateParties.map((sp) => {
+                                                        const pr = pu.parties.find((p) => p.partyCode === sp.partyCode);
+                                                        const isW = pr?.partyCode === puWinner?.partyCode;
+                                                        return (
+                                                          <td key={sp.partyCode} className={`px-3 py-1.5 text-right font-mono ${isW ? "font-bold text-gray-900" : "text-gray-500"}`}>
+                                                            {pr ? pr.votes.toLocaleString() : "—"}
+                                                          </td>
+                                                        );
+                                                      })}
+                                                      <td className="px-3 py-1.5 text-right font-mono font-semibold text-gray-700">{pu.totalVotes.toLocaleString()}</td>
+                                                      <td className="px-3 py-1.5 text-center">
+                                                        {puWinnerParty ? (
+                                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-white text-[10px] font-bold" style={{ backgroundColor: puWinnerParty.color }}>
+                                                            {puWinnerParty.code}
+                                                          </span>
+                                                        ) : "—"}
+                                                      </td>
+                                                    </tr>
                                                   );
                                                 })}
-                                                <td className="px-3 py-1.5 text-right font-mono font-semibold text-gray-700">{pu.totalVotes.toLocaleString()}</td>
-                                                <td className="px-3 py-1.5 text-center">
-                                                  {puWinnerParty ? (
-                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-white text-[10px] font-bold" style={{ backgroundColor: puWinnerParty.color }}>
-                                                      {puWinnerParty.code}
-                                                    </span>
-                                                  ) : "—"}
-                                                </td>
-                                              </tr>
-                                            );
-                                          })}
+                                              </>
+                                            ));
+                                          })()}
                                         </tbody>
                                       </table>
-                                    )}
+                                      </>
+                                      );
+                                    })()}
                                   </td>
                                 </tr>
                               )}
@@ -1162,7 +1265,7 @@ export default function ElectionDashboard() {
                   </table>
                   {lgaResults.length === 0 && (
                     <div className="px-5 py-3 text-xs text-amber-600 bg-amber-50 border-t border-amber-100">
-                      District totals are estimated from state-level data. Run seed_lga_2023.sql to show LGA-level sums per district.
+                      District totals estimated from state data.
                     </div>
                   )}
                 </div>
@@ -1306,7 +1409,7 @@ export default function ElectionDashboard() {
               <div className="text-3xl mb-2">✅</div>
               <p className="text-sm font-semibold text-gray-500">No over-voting detected</p>
               <p className="text-xs mt-1 text-gray-400">
-                All reported results are within accredited voter counts for this election.
+                All reported results are within accredited voter counts.
               </p>
             </div>
           ) : (
@@ -1361,7 +1464,7 @@ export default function ElectionDashboard() {
                 </tbody>
               </table>
               <div className="px-5 py-3 bg-red-50/40 border-t border-red-100 text-xs text-red-500">
-                These anomalies require investigation by INEC collation officers. Data sourced from INEC result sheets via OCR.
+                Flag these to INEC collation officers. Data: INEC result sheets via OCR.
               </div>
             </div>
           )}
@@ -1384,7 +1487,7 @@ export default function ElectionDashboard() {
                 <span className="font-bold text-sm">Nigerians Monitor Your Elections</span>
               </div>
               <p className="text-white/60 text-xs">
-                Data sourced from INEC Nigeria — inecelectionresults.ng
+                Data: INEC Nigeria · inecelectionresults.ng
               </p>
               <p className="text-white/60 text-xs">
                 Powered by OCR collation engine &nbsp;·&nbsp; © 2027 NMYE — Your vote must count

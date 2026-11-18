@@ -3,6 +3,35 @@
 import { useEffect, useRef, useState } from "react";
 import type { Party } from "@/lib/types";
 
+function PartyBadge({ party, size = "md" }: { party: Party; size?: "sm" | "md" }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const dim = size === "sm" ? "w-6 h-6" : "w-10 h-7";
+  const textSize = size === "sm" ? "text-[9px]" : "text-xs";
+
+  if (party.logo && !imgFailed) {
+    return (
+      <div className={`${dim} rounded-md overflow-hidden shrink-0 bg-white border border-gray-200 flex items-center justify-center`}>
+        <img
+          src={party.logo}
+          alt={party.code}
+          className="w-full h-full object-contain"
+          onError={() => setImgFailed(true)}
+        />
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`${dim} rounded-md flex items-center justify-center text-white ${textSize} font-black shrink-0 shadow-sm`}
+      style={{ backgroundColor: party.color }}
+    >
+      {party.shortName ?? party.code}
+    </div>
+  );
+}
+
+export { PartyBadge };
+
 interface PartyBarProps {
   party: Party;
   votes: number;
@@ -64,12 +93,7 @@ export default function PartyBar({
         </div>
 
         {/* Party badge */}
-        <div
-          className="w-10 h-7 rounded-md flex items-center justify-center text-white text-xs font-black shrink-0 shadow-sm"
-          style={{ backgroundColor: party.color }}
-        >
-          {party.shortName ?? party.code}
-        </div>
+        <PartyBadge party={party} size="md" />
 
         {/* Name + bar */}
         <div className="flex-1 min-w-0">
