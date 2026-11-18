@@ -19,6 +19,15 @@ import QueueMonitor from "@/components/QueueMonitor";
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
+// Nigeria is WAT = UTC+1, permanent (no DST). Manual offset is more reliable
+// than Intl timeZone in constrained Node.js SSR environments.
+function toWATTime(date: Date): string {
+  const h = (date.getUTCHours() + 1) % 24;
+  const m = date.getUTCMinutes();
+  const s = date.getUTCSeconds();
+  return [h, m, s].map(n => String(n).padStart(2, "0")).join(":");
+}
+
 function formatVotes(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -737,12 +746,8 @@ export default function ElectionDashboard() {
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-gray-400">Data as of</div>
-                  <div className="text-xs font-semibold text-nigeria-dark tabular-nums">
-                    {lastUpdated.toLocaleTimeString("en-NG", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
+                  <div className="text-xs font-semibold text-nigeria-dark tabular-nums" suppressHydrationWarning>
+                    {toWATTime(lastUpdated)}
                   </div>
                 </div>
               </div>
