@@ -146,11 +146,70 @@ export async function fetchLGAResults(
   }
 }
 
+// ─── fetchAllLGAResults ───────────────────────────────────────────────────────
+// Fetches ALL LGA/district rows for an election (no state filter).
+// Returns results keyed by "STATE_CODE:lga_name" for quick lookup.
+
+export async function fetchAllLGAResults(
+  electionId: string
+): Promise<Record<string, AggregateResult>> {
+  try {
+    const { data, error } = await supabase
+      .from('ng_election_lga_results')
+      .select('*')
+      .eq('election_id', electionId);
+
+    if (error) {
+      console.error(`[db] fetchAllLGAResults(${electionId}) error:`, error.message);
+      return {};
+    }
+    if (!data || data.length === 0) return {};
+
+    const grouped: Record<string, LGAResultRow[]> = {};
+    for (const row of data as LGAResultRow[]) {
+      const key = `${row.state_code}:${row.lga_name}`;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(row);
+    }
+
+    const result: Record<string, AggregateResult> = {};
+    for (const [key, rows] of Object.entries(grouped)) {
+      const ref = rows[0];
+      const partyResults = rows
+        .map((r) => ({ partyCode: r.party_code, votes: r.votes }))
+        .sort((a, b) => b.votes - a.votes);
+      const totalVotes = partyResults.reduce((s, r) => s + r.votes, 0);
+      const withPct = partyResults.map((r) => ({
+        ...r,
+        percentage: totalVotes > 0 ? (r.votes / totalVotes) * 100 : 0,
+      }));
+      result[key] = {
+        level: 'lga' as const,
+        id: key,
+        name: ref.lga_name,
+        stateCode: ref.state_code,
+        totalPUs: ref.total_pus,
+        reportedPUs: ref.reported_pus,
+        accreditedVoters: ref.accredited_voters,
+        results: withPct,
+        status: ref.status,
+        leadingParty: withPct[0]?.partyCode,
+        overVoted: ref.over_voted ?? false,
+      };
+    }
+    return result;
+  } catch (err) {
+    console.error(`[db] fetchAllLGAResults unexpected error:`, err);
+    return {};
+  }
+}
+
 // ─── fetchPUResults ──────────────────────────────────────────────────────────
 
 export interface PUResult {
   puCode: string;
   puName: string;
+  registrationArea: string;
   accreditedVoters: number;
   status: ResultStatus;
   overVoted: boolean;
@@ -166,7 +225,7 @@ export async function fetchPUResults(
   try {
     const { data, error } = await supabase
       .from('ng_election_pu_results')
-      .select('pu_code,pu_name,party_code,votes,accredited_voters,status,over_voted')
+      .select('pu_code,pu_name,registration_area,party_code,votes,accredited_voters,status,over_voted')
       .eq('election_id', electionId)
       .eq('state_code', stateCode)
       .eq('lga_name', lgaName)
@@ -194,6 +253,7 @@ export async function fetchPUResults(
       return {
         puCode: ref.pu_code,
         puName: ref.pu_name,
+        registrationArea: ref.registration_area ?? "",
         accreditedVoters: ref.accredited_voters,
         status: ref.status as ResultStatus,
         overVoted: ref.over_voted ?? false,

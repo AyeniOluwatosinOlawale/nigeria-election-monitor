@@ -8,7 +8,7 @@ import {
   getTotalAccredited,
   getTotalPUs,
 } from "@/lib/mock-results";
-import { fetchStateResults, fetchLGAResults, fetchOverVotedResults, fetchPUResults } from "@/lib/db";
+import { fetchStateResults, fetchLGAResults, fetchAllLGAResults, fetchOverVotedResults, fetchPUResults } from "@/lib/db";
 import type { OverVotedRecord, PUResult } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { PARTIES, PARTY_MAP, STATES, STATE_MAP, SENATORIAL_DISTRICTS, CONSTITUENCY_COUNT } from "@/lib/nigeria-data";
@@ -406,7 +406,6 @@ export default function ElectionDashboard() {
 
       const now = new Date().toISOString();
 
-      // If Supabase returned rows, use them; otherwise fall back to mock data
       const presHasData = Object.keys(pres).length > 0;
       const gubHasData = Object.keys(gub).length > 0;
       const senHasData = Object.keys(sen).length > 0;
@@ -415,6 +414,25 @@ export default function ElectionDashboard() {
       const anyRealData = presHasData || gubHasData || senHasData || houseHasData;
       if (!anyRealData) setUsingDemoData(true);
 
+      // Build senatorial district + constituency maps from LGA-level rows
+      const empty2: Record<string, AggregateResult> = {};
+      const [senLGA, houseLGA] = await Promise.all([
+        senHasData ? fetchAllLGAResults(`senate_${year}`) : Promise.resolve(empty2),
+        houseHasData ? fetchAllLGAResults(`house_reps_${year}`) : Promise.resolve(empty2),
+      ]);
+
+      if (cancelled) return;
+
+      // Build bySenatorialDistrict: key = district ID (e.g. "AB-1")
+      const senDistNameToId = new Map(
+        SENATORIAL_DISTRICTS.map((d) => [`${d.stateCode}:${d.name}`, d.id])
+      );
+      const bySenatorialDistrict: Record<string, AggregateResult> = {};
+      for (const [key, r] of Object.entries(senLGA)) {
+        const distId = senDistNameToId.get(key);
+        if (distId) bySenatorialDistrict[distId] = Object.assign({}, r, { id: distId });
+      }
+
       setPresidentialResults(
         presHasData ? { electionType: "presidential", byState: pres, lastUpdated: now } : null
       );
@@ -422,10 +440,10 @@ export default function ElectionDashboard() {
         gubHasData ? { electionType: "gubernatorial", byState: gub, lastUpdated: now } : null
       );
       setSenateResults(
-        senHasData ? { electionType: "senate", byState: sen, lastUpdated: now } : null
+        senHasData ? { electionType: "senate", byState: sen, lastUpdated: now, bySenatorialDistrict } : null
       );
       setHouseResults(
-        houseHasData ? { electionType: "house_reps", byState: house, lastUpdated: now } : null
+        houseHasData ? { electionType: "house_reps", byState: house, lastUpdated: now, byConstituency: houseLGA } : null
       );
 
       setLastUpdated(new Date());

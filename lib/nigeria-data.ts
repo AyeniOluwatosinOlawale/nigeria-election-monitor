@@ -246,15 +246,15 @@ export const STATE_GRID = [
 // Senatorial districts: 3 per state (North/Central/South or East/West/Central), 1 for FCT = 109
 // Naming follows typical INEC patterns
 const SENATE_SUFFIXES: Record<string, [string, string, string]> = {
-  SO: ["North", "East", "South"],
+  SO: ["East", "North", "South"],
   KB: ["North", "Central", "South"],
-  ZA: ["North", "Central", "South"],
+  ZA: ["Central", "North", "West"],
   KT: ["North", "Central", "South"],
   KN: ["North", "Central", "South"],
-  JI: ["North", "Central", "South"],
+  JI: ["Central", "North-East", "North-West"],
   KD: ["North", "Central", "South"],
   BO: ["North", "Central", "South"],
-  YO: ["North", "East", "West"],
+  YO: ["East", "North", "South"],
   AD: ["North", "Central", "South"],
   GO: ["North", "Central", "South"],
   BA: ["North", "Central", "South"],
@@ -262,9 +262,9 @@ const SENATE_SUFFIXES: Record<string, [string, string, string]> = {
   NI: ["North", "East", "South"],
   KW: ["North", "Central", "South"],
   KO: ["East", "Central", "West"],
-  NA: ["East", "North", "West"],
-  PL: ["North", "South", "Riyom"],
-  BE: ["North", "Central", "South"],
+  NA: ["North", "South", "West"],
+  PL: ["Central", "North", "South"],
+  BE: ["North-East", "North-West", "South"],
   LA: ["East", "Central", "West"],
   OG: ["East", "Central", "West"],
   OY: ["North", "Central", "South"],
@@ -274,9 +274,9 @@ const SENATE_SUFFIXES: Record<string, [string, string, string]> = {
   RV: ["East", "South-East", "West"],
   DL: ["North", "Central", "South"],
   ED: ["North", "Central", "South"],
-  BY: ["East", "Ogbia", "West"],
+  BY: ["Central", "East", "West"],
   CR: ["North", "Central", "South"],
-  AK: ["East", "North", "West"],
+  AK: ["North-East", "North-West", "South"],
   AN: ["North", "Central", "South"],
   IM: ["East", "North", "West"],
   EN: ["East", "North", "West"],
@@ -291,7 +291,7 @@ for (const state of STATES) {
     // FCT has only 1 senator
     SENATORIAL_DISTRICTS.push({
       id: `FC-1`,
-      name: "FCT",
+      name: "Abuja",
       stateCode: "FC",
     });
   } else {
