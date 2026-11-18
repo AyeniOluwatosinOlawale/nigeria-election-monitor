@@ -54,17 +54,17 @@ export default function StatsStrip({
       <div className="max-w-screen-2xl mx-auto px-4">
         <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-100">
           {stats.map((stat, i) => (
-            <div key={i} className="px-5 py-4">
+            <div key={i} className="px-3 sm:px-5 py-3 sm:py-4">
               <div
-                className="text-2xl font-black tabular-nums"
+                className="text-xl sm:text-2xl font-black tabular-nums"
                 style={{ color: stat.accent }}
               >
                 {stat.value}
               </div>
-              <div className="text-xs font-semibold text-gray-700 mt-0.5">
+              <div className="text-[11px] sm:text-xs font-semibold text-gray-700 mt-0.5 leading-tight">
                 {stat.label}
               </div>
-              <div className="text-xs text-gray-400 mt-0.5">{stat.sub}</div>
+              <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{stat.sub}</div>
             </div>
           ))}
         </div>

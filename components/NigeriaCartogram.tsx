@@ -47,11 +47,22 @@ export default function NigeriaCartogram({
     : null;
 
   return (
-    <div className="relative select-none">
-      {/* Grid container */}
+    <div className="relative select-none w-full">
+      <style>{`
+        @media (max-width: 480px) { :root { --cartogram-scale: 0.62; } }
+        @media (min-width: 481px) and (max-width: 640px) { :root { --cartogram-scale: 0.8; } }
+        @media (min-width: 641px) { :root { --cartogram-scale: 1; } }
+      `}</style>
+      {/* Grid container — scales down on mobile */}
       <div
-        className="relative"
-        style={{ width: totalWidth, height: totalHeight, margin: "0 auto" }}
+        className="relative mx-auto"
+        style={{
+          width: totalWidth,
+          height: totalHeight,
+          transform: "scale(var(--cartogram-scale, 1))",
+          transformOrigin: "top center",
+          marginBottom: `calc((var(--cartogram-scale, 1) - 1) * ${totalHeight}px)`,
+        }}
       >
         {STATE_GRID.map(({ code, col, row }) => {
           const result = resultMap[code];

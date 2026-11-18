@@ -568,31 +568,39 @@ export default function ElectionDashboard() {
       {/* ── HEADER ──────────────────────────────────────────────────── */}
       <header className="bg-nigeria-green shadow-lg">
         <div className="max-w-screen-2xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            {/* Left: flag + badge */}
+          {/* Mobile: title + live badge row */}
+          <div className="flex sm:hidden items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="rounded overflow-hidden border border-white/20">
+                <NigerianFlag width={30} height={20} />
+              </div>
+              <h1 className="text-white font-black text-base leading-tight">
+                NMYE 2027
+              </h1>
+            </div>
+            <div className="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow">
+              <span className="w-1.5 h-1.5 rounded-full bg-white live-dot" />
+              LIVE
+            </div>
+          </div>
+          <div className="hidden sm:block text-center">
+            <h1 className="text-white font-black text-xl sm:text-2xl md:text-3xl leading-tight tracking-tight">
+              Nigerians Monitor Your Elections
+            </h1>
+            <p className="text-white/80 text-xs sm:text-sm italic font-light mt-0.5">Your vote must count</p>
+          </div>
+
+          {/* Desktop: three-column layout */}
+          <div className="hidden sm:flex items-center justify-between gap-4 mt-2">
             <div className="flex items-center gap-3 shrink-0">
               <div className="rounded overflow-hidden shadow-md border border-white/20">
                 <NigerianFlag width={48} height={32} />
               </div>
               <div>
-                <div className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full tracking-widest uppercase">
-                  NMYE 2027
-                </div>
+                <div className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full tracking-widest uppercase">NMYE 2027</div>
                 <div className="text-white/70 text-xs mt-0.5">Official Collation Monitor</div>
               </div>
             </div>
-
-            {/* Center: title */}
-            <div className="text-center flex-1 min-w-0">
-              <h1 className="text-white font-black text-xl sm:text-2xl md:text-3xl leading-tight tracking-tight">
-                Nigerians Monitor Your Elections
-              </h1>
-              <p className="text-white/80 text-sm italic font-light mt-0.5">
-                Your vote must count
-              </p>
-            </div>
-
-            {/* Right: clock + live badge */}
             <div className="flex items-center gap-3 shrink-0">
               <LiveClock />
               <div className="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow">
@@ -619,7 +627,7 @@ export default function ElectionDashboard() {
       <div className="bg-white border-b border-gray-200 py-2">
         <div className="max-w-screen-2xl mx-auto px-4 flex items-center justify-between gap-4">
           {/* Left: year buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">View:</span>
             {([2023, 2027] as const).map((year) => (
               <button
@@ -631,8 +639,8 @@ export default function ElectionDashboard() {
                 }}
                 className={
                   activeYear === year
-                    ? "px-4 py-1.5 rounded-full text-sm font-bold bg-nigeria-green text-white"
-                    : "px-4 py-1.5 rounded-full text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    ? "px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-nigeria-green text-white"
+                    : "px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }
               >
                 {year === 2023 ? "2023 Results" : "2027 Live"}
@@ -694,7 +702,7 @@ export default function ElectionDashboard() {
       </div>
 
       {/* ── MAIN CONTENT ─────────────────────────────────────────────── */}
-      <main className="max-w-screen-2xl mx-auto w-full px-4 py-6 flex-1">
+      <main className="max-w-screen-2xl mx-auto w-full px-2 sm:px-4 py-4 sm:py-6 flex-1">
         <div className="relative flex flex-col lg:flex-row gap-6">
 
           {/* Loading overlay */}
