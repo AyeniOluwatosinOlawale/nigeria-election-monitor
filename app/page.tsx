@@ -8,7 +8,7 @@ import {
   getTotalAccredited,
   getTotalPUs,
 } from "@/lib/mock-results";
-import { fetchStateResults } from "@/lib/db";
+import { fetchStateResults, fetchLGAResults } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { PARTIES, PARTY_MAP, STATES, STATE_MAP, SENATORIAL_DISTRICTS, CONSTITUENCY_COUNT } from "@/lib/nigeria-data";
 import NigeriaCartogram from "@/components/NigeriaCartogram";
@@ -358,6 +358,8 @@ export default function ElectionDashboard() {
   const [loading, setLoading] = useState(true);
   const [usingDemoData, setUsingDemoData] = useState(false);
 
+  const [lgaResultsCache, setLgaResultsCache] = useState<Record<string, AggregateResult[]>>({});
+
   // Result state — null until loaded
   const [presidentialResults, setPresidentialResults] = useState<ElectionResult | null>(null);
   const [guberResults, setGuberResults] = useState<ElectionResult | null>(null);
@@ -455,6 +457,17 @@ export default function ElectionDashboard() {
     };
   }, [activeYear]);
 
+  // ── Load LGA results when a state is selected ────────────────────────────
+  useEffect(() => {
+    if (!selectedState) return;
+    const cacheKey = `${activeTab}_${activeYear}_${selectedState}`;
+    if (lgaResultsCache[cacheKey]) return;
+
+    fetchLGAResults(`${activeTab}_${activeYear}`, selectedState).then((results) => {
+      setLgaResultsCache((prev) => ({ ...prev, [cacheKey]: results }));
+    });
+  }, [selectedState, activeTab, activeYear]);
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const activeResults = useMemo<ElectionResult>(() => {
@@ -504,8 +517,10 @@ export default function ElectionDashboard() {
     const stateResult = activeResults.byState[selectedState];
     const stateInfo = STATE_MAP[selectedState];
     if (!stateResult || !stateInfo) return null;
-    return { stateResult, stateInfo, lgaResults: [] as AggregateResult[] };
-  }, [selectedState, activeResults]);
+    const cacheKey = `${activeTab}_${activeYear}_${selectedState}`;
+    const lgaResults = lgaResultsCache[cacheKey] ?? [];
+    return { stateResult, stateInfo, lgaResults };
+  }, [selectedState, activeResults, lgaResultsCache, activeTab, activeYear]);
 
   const cartogramResults = useMemo(
     () => Object.values(activeResults.byState),
@@ -877,11 +892,57 @@ export default function ElectionDashboard() {
               })}
             </div>
 
-            {/* LGA breakdown — no data yet */}
-            <div className="px-5 py-10 text-center text-gray-400">
-              <p className="text-sm font-medium">LGA breakdown data not yet available.</p>
-              <p className="text-xs mt-1">Results will appear here as INEC collates ward-level data.</p>
-            </div>
+            {/* LGA breakdown */}
+            {selectedStateData.lgaResults.length === 0 ? (
+              <div className="px-5 py-10 text-center text-gray-400">
+                <p className="text-sm font-medium">No LGA data loaded yet.</p>
+                <p className="text-xs mt-1">Results will appear here as INEC collates ward-level data.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">LGA Name</th>
+                      <th className="text-left px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Leading Party</th>
+                      <th className="text-right px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Votes</th>
+                      <th className="text-right px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">%</th>
+                      <th className="text-center px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {selectedStateData.lgaResults.map((lga) => {
+                      const top = lga.results[0];
+                      const party = top ? PARTY_MAP[top.partyCode] : null;
+                      return (
+                        <tr key={lga.id} className="hover:bg-nigeria-light/30 transition-colors">
+                          <td className="px-4 py-2.5 font-semibold text-gray-800">{lga.name}</td>
+                          <td className="px-3 py-2.5">
+                            {party ? (
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-white text-xs font-bold"
+                                style={{ backgroundColor: party.color }}
+                              >
+                                {party.code}
+                              </span>
+                            ) : "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-gray-800">
+                            {top ? top.votes.toLocaleString() : "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-xs text-gray-600">
+                            {top?.percentage != null ? `${top.percentage.toFixed(1)}%` : "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <StatusBadge status={lga.status} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

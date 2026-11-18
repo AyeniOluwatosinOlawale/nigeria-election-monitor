@@ -16,6 +16,7 @@ export interface NigeriaState {
   capital: string;
   lgas: number;
   registeredVoters?: number;
+  lgaNames?: string[];
 }
 
 export interface SenatorialDistrict {

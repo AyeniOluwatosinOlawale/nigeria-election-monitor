@@ -77,6 +77,75 @@ export async function fetchStateResults(
   }
 }
 
+// ─── fetchLGAResults ─────────────────────────────────────────────────────────
+
+interface LGAResultRow {
+  election_id: string;
+  state_code: string;
+  lga_name: string;
+  party_code: string;
+  votes: number;
+  accredited_voters: number;
+  total_pus: number;
+  reported_pus: number;
+  status: ResultStatus;
+  over_voted: boolean;
+}
+
+export async function fetchLGAResults(
+  electionId: string,
+  stateCode: string
+): Promise<AggregateResult[]> {
+  try {
+    const { data, error } = await supabase
+      .from('ng_election_lga_results')
+      .select('*')
+      .eq('election_id', electionId)
+      .eq('state_code', stateCode)
+      .order('lga_name');
+
+    if (error) {
+      console.error(`[db] fetchLGAResults error:`, error.message);
+      return [];
+    }
+    if (!data || data.length === 0) return [];
+
+    const grouped: Record<string, LGAResultRow[]> = {};
+    for (const row of data as LGAResultRow[]) {
+      if (!grouped[row.lga_name]) grouped[row.lga_name] = [];
+      grouped[row.lga_name].push(row);
+    }
+
+    return Object.entries(grouped).map(([lgaName, rows]) => {
+      const ref = rows[0];
+      const partyResults: PartyResult[] = rows
+        .map((r) => ({ partyCode: r.party_code, votes: r.votes }))
+        .sort((a, b) => b.votes - a.votes);
+      const totalVotes = partyResults.reduce((s, r) => s + r.votes, 0);
+      const withPct = partyResults.map((r) => ({
+        ...r,
+        percentage: totalVotes > 0 ? (r.votes / totalVotes) * 100 : 0,
+      }));
+      return {
+        level: 'lga' as const,
+        id: lgaName,
+        name: lgaName,
+        stateCode: ref.state_code,
+        totalPUs: ref.total_pus,
+        reportedPUs: ref.reported_pus,
+        accreditedVoters: ref.accredited_voters,
+        results: withPct,
+        status: ref.status,
+        leadingParty: withPct[0]?.partyCode,
+        overVoted: ref.over_voted ?? false,
+      };
+    });
+  } catch (err) {
+    console.error(`[db] fetchLGAResults unexpected error:`, err);
+    return [];
+  }
+}
+
 // ─── groupRowsByState ────────────────────────────────────────────────────────
 // Groups flat party rows into AggregateResult objects keyed by state_code.
 

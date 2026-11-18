@@ -23,48 +23,159 @@ export const PARTY_MAP: Record<string, Party> = Object.fromEntries(
 
 export const STATES: NigeriaState[] = [
   // North West (7)
-  { code: "SO", name: "Sokoto", zone: "NW", capital: "Sokoto", lgas: 23, registeredVoters: 2100000 },
-  { code: "KB", name: "Kebbi", zone: "NW", capital: "Birnin Kebbi", lgas: 21, registeredVoters: 1900000 },
-  { code: "ZA", name: "Zamfara", zone: "NW", capital: "Gusau", lgas: 14, registeredVoters: 1800000 },
-  { code: "KT", name: "Katsina", zone: "NW", capital: "Katsina", lgas: 34, registeredVoters: 3200000 },
-  { code: "KN", name: "Kano", zone: "NW", capital: "Kano", lgas: 44, registeredVoters: 5800000 },
-  { code: "JI", name: "Jigawa", zone: "NW", capital: "Dutse", lgas: 27, registeredVoters: 2200000 },
-  { code: "KD", name: "Kaduna", zone: "NW", capital: "Kaduna", lgas: 23, registeredVoters: 3900000 },
+  {
+    code: "SO", name: "Sokoto", zone: "NW", capital: "Sokoto", lgas: 23, registeredVoters: 2100000,
+    lgaNames: ["Binji","Bodinga","Dange Shuni","Gada","Goronyo","Gudu","Gwadabawa","Illela","Isa","Kebbe","Kware","Rabah","Sabon Birni","Shagari","Silame","Sokoto North","Sokoto South","Tambuwal","Tangaza","Tureta","Wamako","Wurno","Yabo"],
+  },
+  {
+    code: "KB", name: "Kebbi", zone: "NW", capital: "Birnin Kebbi", lgas: 21, registeredVoters: 1900000,
+    lgaNames: ["Aleiro","Arewa Dandi","Argungu","Augie","Bagudo","Birnin Kebbi","Bunza","Dandi","Fakai","Gwandu","Jega","Kalgo","Koko/Besse","Maiyama","Ngaski","Sakaba","Shanga","Suru","Wasagu/Danko","Yauri","Zuru"],
+  },
+  {
+    code: "ZA", name: "Zamfara", zone: "NW", capital: "Gusau", lgas: 14, registeredVoters: 1800000,
+    lgaNames: ["Anka","Bakura","Birnin Magaji/Kiyaw","Bukkuyum","Bungudu","Gummi","Gusau","Kaura Namoda","Maradun","Maru","Shinkafi","Talata Mafara","Tsafe","Zurmi"],
+  },
+  {
+    code: "KT", name: "Katsina", zone: "NW", capital: "Katsina", lgas: 34, registeredVoters: 3200000,
+    lgaNames: ["Bakori","Batagarawa","Batsari","Baure","Bindawa","Charanchi","Dan Musa","Dandume","Danja","Daura","Dutsi","Dutsin-Ma","Faskari","Funtua","Ingawa","Jibia","Kafur","Kaita","Kankara","Kankia","Katsina","Kurfi","Kusada","Mai'Adua","Malumfashi","Mani","Mashi","Matazu","Musawa","Rimi","Sabuwa","Safana","Sandamu","Zango"],
+  },
+  {
+    code: "KN", name: "Kano", zone: "NW", capital: "Kano", lgas: 44, registeredVoters: 5800000,
+    lgaNames: ["Ajingi","Albasu","Bagwai","Bebeji","Bichi","Bunkure","Dala","Dambatta","Dawakin Kudu","Dawakin Tofa","Doguwa","Fagge","Gabasawa","Garko","Garun Mallam","Gaya","Gezawa","Gwale","Gwarzo","Kabo","Kano Municipal","Karaye","Kibiya","Kiru","Kumbotso","Kunchi","Kura","Madobi","Makoda","Minjibir","Nasarawa","Rano","Rimin Gado","Rogo","Shanono","Sumaila","Takai","Tarauni","Tofa","Tsanyawa","Tudun Wada","Ungogo","Warawa","Wudil"],
+  },
+  {
+    code: "JI", name: "Jigawa", zone: "NW", capital: "Dutse", lgas: 27, registeredVoters: 2200000,
+    lgaNames: ["Auyo","Babura","Biriniwa","Birnin Kudu","Buji","Dutse","Gagarawa","Garki","Gumel","Guri","Gwaram","Gwiwa","Hadejia","Jahun","Kafin Hausa","Kaugama","Kazaure","Kiri Kasamma","Kiyawa","Maigatari","Malam Madori","Miga","Ringim","Roni","Sule Tankarkar","Taura","Yankwashi"],
+  },
+  {
+    code: "KD", name: "Kaduna", zone: "NW", capital: "Kaduna", lgas: 23, registeredVoters: 3900000,
+    lgaNames: ["Birnin Gwari","Chikun","Giwa","Igabi","Ikara","Jaba","Jema'a","Kachia","Kaduna North","Kaduna South","Kagarko","Kajuru","Kaura","Kauru","Kubau","Kudan","Lere","Makarfi","Sabon Gari","Sanga","Soba","Zangon Kataf","Zaria"],
+  },
   // North East (6)
-  { code: "BO", name: "Borno", zone: "NE", capital: "Maiduguri", lgas: 27, registeredVoters: 2400000 },
-  { code: "YO", name: "Yobe", zone: "NE", capital: "Damaturu", lgas: 17, registeredVoters: 1300000 },
-  { code: "AD", name: "Adamawa", zone: "NE", capital: "Yola", lgas: 21, registeredVoters: 1900000 },
-  { code: "GO", name: "Gombe", zone: "NE", capital: "Gombe", lgas: 11, registeredVoters: 1200000 },
-  { code: "BA", name: "Bauchi", zone: "NE", capital: "Bauchi", lgas: 20, registeredVoters: 2300000 },
-  { code: "TA", name: "Taraba", zone: "NE", capital: "Jalingo", lgas: 16, registeredVoters: 1500000 },
+  {
+    code: "BO", name: "Borno", zone: "NE", capital: "Maiduguri", lgas: 27, registeredVoters: 2400000,
+    lgaNames: ["Abadam","Askira/Uba","Bama","Bayo","Biu","Chibok","Damboa","Dikwa","Gubio","Guzamala","Gwoza","Hawul","Jere","Kaga","Kala/Balge","Konduga","Kukawa","Kwaya Kusar","Mafa","Magumeri","Maiduguri","Marte","Mobbar","Monguno","Ngala","Nganzai","Shani"],
+  },
+  {
+    code: "YO", name: "Yobe", zone: "NE", capital: "Damaturu", lgas: 17, registeredVoters: 1300000,
+    lgaNames: ["Bade","Bursari","Damaturu","Fika","Fune","Geidam","Gujba","Gulani","Jakusko","Karasuwa","Machina","Nangere","Nguru","Potiskum","Tarmuwa","Yunusari","Yusufari"],
+  },
+  {
+    code: "AD", name: "Adamawa", zone: "NE", capital: "Yola", lgas: 21, registeredVoters: 1900000,
+    lgaNames: ["Demsa","Fufore","Ganye","Girei","Gombi","Guyuk","Hong","Jada","Lamurde","Madagali","Maiha","Mayo-Belwa","Michika","Mubi North","Mubi South","Numan","Shelleng","Song","Toungo","Yola North","Yola South"],
+  },
+  {
+    code: "GO", name: "Gombe", zone: "NE", capital: "Gombe", lgas: 11, registeredVoters: 1200000,
+    lgaNames: ["Akko","Balanga","Billiri","Dukku","Funakaye","Gombe","Kaltungo","Kwami","Nafada","Shomgom","Yamaltu/Deba"],
+  },
+  {
+    code: "BA", name: "Bauchi", zone: "NE", capital: "Bauchi", lgas: 20, registeredVoters: 2300000,
+    lgaNames: ["Alkaleri","Bauchi","Bogoro","Damban","Darazo","Dass","Gamawa","Ganjuwa","Giade","Itas/Gadau","Jama'are","Katagum","Kirfi","Misau","Ningi","Shira","Tafawa Balewa","Toro","Warji","Zaki"],
+  },
+  {
+    code: "TA", name: "Taraba", zone: "NE", capital: "Jalingo", lgas: 16, registeredVoters: 1500000,
+    lgaNames: ["Ardo Kola","Bali","Donga","Gashaka","Gassol","Ibi","Jalingo","Karim Lamido","Kumi","Lau","Sardauna","Takum","Ussa","Wukari","Yorro","Zing"],
+  },
   // North Central (7)
-  { code: "NI", name: "Niger", zone: "NC", capital: "Minna", lgas: 25, registeredVoters: 2500000 },
-  { code: "KW", name: "Kwara", zone: "NC", capital: "Ilorin", lgas: 16, registeredVoters: 1700000 },
-  { code: "FC", name: "FCT", zone: "NC", capital: "Abuja", lgas: 6, registeredVoters: 1900000 },
-  { code: "KO", name: "Kogi", zone: "NC", capital: "Lokoja", lgas: 21, registeredVoters: 2000000 },
-  { code: "NA", name: "Nasarawa", zone: "NC", capital: "Lafia", lgas: 13, registeredVoters: 1300000 },
-  { code: "PL", name: "Plateau", zone: "NC", capital: "Jos", lgas: 17, registeredVoters: 2200000 },
-  { code: "BE", name: "Benue", zone: "NC", capital: "Makurdi", lgas: 23, registeredVoters: 2500000 },
+  {
+    code: "NI", name: "Niger", zone: "NC", capital: "Minna", lgas: 25, registeredVoters: 2500000,
+    lgaNames: ["Agaie","Agwara","Bida","Borgu","Bosso","Chanchaga","Edati","Gbako","Gurara","Katcha","Kontagora","Lapai","Lavun","Magama","Mariga","Mashegu","Mokwa","Moya","Paikoro","Rafi","Rijau","Shiroro","Suleja","Tafa","Wushishi"],
+  },
+  {
+    code: "KW", name: "Kwara", zone: "NC", capital: "Ilorin", lgas: 16, registeredVoters: 1700000,
+    lgaNames: ["Asa","Baruten","Edu","Ekiti","Ifelodun","Ilorin East","Ilorin South","Ilorin West","Irepodun","Isin","Kaiama","Moro","Offa","Oke-Ero","Oyun","Pategi"],
+  },
+  {
+    code: "FC", name: "FCT", zone: "NC", capital: "Abuja", lgas: 6, registeredVoters: 1900000,
+    lgaNames: ["Abaji","Bwari","Gwagwalada","Kuje","Kwali","Municipal Area Council"],
+  },
+  {
+    code: "KO", name: "Kogi", zone: "NC", capital: "Lokoja", lgas: 21, registeredVoters: 2000000,
+    lgaNames: ["Adavi","Ajaokuta","Ankpa","Bassa","Dekina","Ibaji","Idah","Igalamela-Odolu","Ijumu","Kabba/Bunu","Kogi","Lokoja","Mopa-Muro","Ofu","Ogori/Magongo","Okehi","Okene","Olamaboro","Omala","Yagba East","Yagba West"],
+  },
+  {
+    code: "NA", name: "Nasarawa", zone: "NC", capital: "Lafia", lgas: 13, registeredVoters: 1300000,
+    lgaNames: ["Akwanga","Awe","Doma","Karu","Keana","Keffi","Kokona","Lafia","Nasarawa","Nasarawa Egon","Obi","Toto","Wamba"],
+  },
+  {
+    code: "PL", name: "Plateau", zone: "NC", capital: "Jos", lgas: 17, registeredVoters: 2200000,
+    lgaNames: ["Barkin Ladi","Bassa","Bokkos","Jos East","Jos North","Jos South","Kanam","Kanke","Langtang North","Langtang South","Mangu","Mikang","Pankshin","Qua'an Pan","Riyom","Shendam","Wase"],
+  },
+  {
+    code: "BE", name: "Benue", zone: "NC", capital: "Makurdi", lgas: 23, registeredVoters: 2500000,
+    lgaNames: ["Ado","Agatu","Apa","Buruku","Gboko","Guma","Gwer East","Gwer West","Katsina-Ala","Konshisha","Kwande","Logo","Makurdi","Obi","Ogbadibo","Ohimini","Oju","Okpokwu","Otukpo","Tarka","Ukum","Ushongo","Vandeikya"],
+  },
   // South West (6)
-  { code: "LA", name: "Lagos", zone: "SW", capital: "Lagos", lgas: 20, registeredVoters: 7600000 },
-  { code: "OG", name: "Ogun", zone: "SW", capital: "Abeokuta", lgas: 20, registeredVoters: 2300000 },
-  { code: "OY", name: "Oyo", zone: "SW", capital: "Ibadan", lgas: 33, registeredVoters: 3200000 },
-  { code: "OS", name: "Osun", zone: "SW", capital: "Osogbo", lgas: 30, registeredVoters: 1900000 },
-  { code: "ON", name: "Ondo", zone: "SW", capital: "Akure", lgas: 18, registeredVoters: 1800000 },
-  { code: "EK", name: "Ekiti", zone: "SW", capital: "Ado Ekiti", lgas: 16, registeredVoters: 1000000 },
+  {
+    code: "LA", name: "Lagos", zone: "SW", capital: "Lagos", lgas: 20, registeredVoters: 7600000,
+    lgaNames: ["Agege","Ajeromi-Ifelodun","Alimosho","Amuwo-Odofin","Apapa","Badagry","Epe","Eti-Osa","Ibeju-Lekki","Ifako-Ijaiye","Ikeja","Ikorodu","Kosofe","Lagos Island","Lagos Mainland","Mushin","Ojo","Oshodi-Isolo","Somolu","Surulere"],
+  },
+  {
+    code: "OG", name: "Ogun", zone: "SW", capital: "Abeokuta", lgas: 20, registeredVoters: 2300000,
+    lgaNames: ["Abeokuta North","Abeokuta South","Ado-Odo/Ota","Egbado North","Egbado South","Ewekoro","Ifo","Ijebu East","Ijebu North","Ijebu North East","Ijebu Ode","Ikenne","Imeko Afon","Ipokia","Obafemi Owode","Odeda","Odogbolu","Ogun Waterside","Remo North","Sagamu"],
+  },
+  {
+    code: "OY", name: "Oyo", zone: "SW", capital: "Ibadan", lgas: 33, registeredVoters: 3200000,
+    lgaNames: ["Afijio","Akinyele","Atiba","Atisbo","Egbeda","Ibadan North","Ibadan North-East","Ibadan North-West","Ibadan South-East","Ibadan South-West","Ibarapa Central","Ibarapa East","Ibarapa North","Ido","Irepo","Iseyin","Itesiwaju","Iwajowa","Kajola","Lagelu","Ogbomosho North","Ogbomosho South","Ogo Oluwa","Olorunsogo","Oluyole","Ona Ara","Orelope","Ori Ire","Oyo East","Oyo West","Saki East","Saki West","Surulere"],
+  },
+  {
+    code: "OS", name: "Osun", zone: "SW", capital: "Osogbo", lgas: 30, registeredVoters: 1900000,
+    lgaNames: ["Aiyedade","Aiyedire","Atakunmosa East","Atakunmosa West","Boluwaduro","Boripe","Ede North","Ede South","Egbedore","Ejigbo","Ife Central","Ife East","Ife North","Ife South","Ifedayo","Ifelodun","Ila","Ilesa East","Ilesa West","Irepodun","Irewole","Isokan","Iwo","Obokun","Odo Otin","Ola Oluwa","Olorunda","Oriade","Orolu","Osogbo"],
+  },
+  {
+    code: "ON", name: "Ondo", zone: "SW", capital: "Akure", lgas: 18, registeredVoters: 1800000,
+    lgaNames: ["Akoko North-East","Akoko North-West","Akoko South-East","Akoko South-West","Akure North","Akure South","Ese Odo","Idanre","Ifedore","Ilaje","Ile Oluji/Okeigbo","Irele","Odigbo","Okitipupa","Ondo East","Ondo West","Ose","Owo"],
+  },
+  {
+    code: "EK", name: "Ekiti", zone: "SW", capital: "Ado Ekiti", lgas: 16, registeredVoters: 1000000,
+    lgaNames: ["Ado Ekiti","Efon","Ekiti East","Ekiti South-West","Ekiti West","Emure","Gbonyin","Ido-Osi","Ijero","Ikere","Ikole","Ilejemeje","Irepodun/Ifelodun","Ise/Orun","Moba","Oye"],
+  },
   // South South (6)
-  { code: "RV", name: "Rivers", zone: "SS", capital: "Port Harcourt", lgas: 23, registeredVoters: 3300000 },
-  { code: "DL", name: "Delta", zone: "SS", capital: "Asaba", lgas: 25, registeredVoters: 2700000 },
-  { code: "ED", name: "Edo", zone: "SS", capital: "Benin City", lgas: 18, registeredVoters: 2200000 },
-  { code: "BY", name: "Bayelsa", zone: "SS", capital: "Yenagoa", lgas: 8, registeredVoters: 950000 },
-  { code: "CR", name: "Cross River", zone: "SS", capital: "Calabar", lgas: 18, registeredVoters: 1700000 },
-  { code: "AK", name: "Akwa Ibom", zone: "SS", capital: "Uyo", lgas: 31, registeredVoters: 2400000 },
+  {
+    code: "RV", name: "Rivers", zone: "SS", capital: "Port Harcourt", lgas: 23, registeredVoters: 3300000,
+    lgaNames: ["Abua/Odual","Ahoada East","Ahoada West","Akuku-Toru","Andoni","Asari-Toru","Bonny","Degema","Eleme","Emohua","Etche","Gokana","Ikwerre","Khana","Obio/Akpor","Ogba/Egbema/Ndoni","Ogu/Bolo","Okrika","Omuma","Opobo/Nkoro","Oyigbo","Port Harcourt","Tai"],
+  },
+  {
+    code: "DL", name: "Delta", zone: "SS", capital: "Asaba", lgas: 25, registeredVoters: 2700000,
+    lgaNames: ["Aniocha North","Aniocha South","Bomadi","Burutu","Ethiope East","Ethiope West","Ika North East","Ika South","Isoko North","Isoko South","Ndokwa East","Ndokwa West","Okpe","Oshimili North","Oshimili South","Patani","Sapele","Udu","Ughelli North","Ughelli South","Ukwuani","Uvwie","Warri North","Warri South","Warri South West"],
+  },
+  {
+    code: "ED", name: "Edo", zone: "SS", capital: "Benin City", lgas: 18, registeredVoters: 2200000,
+    lgaNames: ["Akoko-Edo","Egor","Esan Central","Esan North-East","Esan South-East","Esan West","Etsako Central","Etsako East","Etsako West","Igueben","Ikpoba-Okha","Orhionmwon","Oredo","Ovia North-East","Ovia South-West","Owan East","Owan West","Uhunmwonde"],
+  },
+  {
+    code: "BY", name: "Bayelsa", zone: "SS", capital: "Yenagoa", lgas: 8, registeredVoters: 950000,
+    lgaNames: ["Brass","Ekeremor","Kolokuma/Opokuma","Nembe","Ogbia","Sagbama","Southern Ijaw","Yenagoa"],
+  },
+  {
+    code: "CR", name: "Cross River", zone: "SS", capital: "Calabar", lgas: 18, registeredVoters: 1700000,
+    lgaNames: ["Abi","Akamkpa","Akpabuyo","Bakassi","Bekwarra","Biase","Boki","Calabar Municipal","Calabar South","Etung","Ikom","Obanliku","Obubra","Obudu","Odukpani","Ogoja","Yakurr","Yala"],
+  },
+  {
+    code: "AK", name: "Akwa Ibom", zone: "SS", capital: "Uyo", lgas: 31, registeredVoters: 2400000,
+    lgaNames: ["Abak","Eastern Obolo","Eket","Esit Eket","Essien Udim","Etim Ekpo","Etinan","Ibeno","Ibesikpo Asutan","Ibiono-Ibom","Ika","Ikono","Ikot Abasi","Ikot Ekpene","Ini","Itu","Mbo","Mkpat Enin","Nsit Atai","Nsit Ibom","Nsit Ubium","Obot Akara","Okobo","Onna","Oron","Oruk Anam","Udung Uko","Ukanafun","Uruan","Urue-Offong/Oruko","Uyo"],
+  },
   // South East (5)
-  { code: "AN", name: "Anambra", zone: "SE", capital: "Awka", lgas: 21, registeredVoters: 2300000 },
-  { code: "IM", name: "Imo", zone: "SE", capital: "Owerri", lgas: 27, registeredVoters: 2100000 },
-  { code: "EN", name: "Enugu", zone: "SE", capital: "Enugu", lgas: 17, registeredVoters: 1900000 },
-  { code: "AB", name: "Abia", zone: "SE", capital: "Umuahia", lgas: 17, registeredVoters: 1500000 },
-  { code: "EB", name: "Ebonyi", zone: "SE", capital: "Abakaliki", lgas: 13, registeredVoters: 1300000 },
+  {
+    code: "AN", name: "Anambra", zone: "SE", capital: "Awka", lgas: 21, registeredVoters: 2300000,
+    lgaNames: ["Aguata","Anambra East","Anambra West","Anaocha","Awka North","Awka South","Ayamelum","Dunukofia","Ekwusigo","Idemili North","Idemili South","Ihiala","Njikoka","Nnewi North","Nnewi South","Ogbaru","Onitsha North","Onitsha South","Orumba North","Orumba South","Oyi"],
+  },
+  {
+    code: "IM", name: "Imo", zone: "SE", capital: "Owerri", lgas: 27, registeredVoters: 2100000,
+    lgaNames: ["Aboh Mbaise","Ahiazu Mbaise","Ehime Mbano","Ezinihitte","Ideato North","Ideato South","Ihitte/Uboma","Ikeduru","Isiala Mbano","Isu","Mbaitoli","Ngor Okpala","Njaba","Nkwerre","Nwangele","Obowo","Oguta","Ohaji/Egbema","Okigwe","Orlu","Orsu","Oru East","Oru West","Owerri Municipal","Owerri North","Owerri West","Unuimo"],
+  },
+  {
+    code: "EN", name: "Enugu", zone: "SE", capital: "Enugu", lgas: 17, registeredVoters: 1900000,
+    lgaNames: ["Aninri","Awgu","Enugu East","Enugu North","Enugu South","Ezeagu","Igbo Etiti","Igbo Eze North","Igbo Eze South","Isi Uzo","Nkanu East","Nkanu West","Nsukka","Oji River","Udenu","Udi","Uzo Uwani"],
+  },
+  {
+    code: "AB", name: "Abia", zone: "SE", capital: "Umuahia", lgas: 17, registeredVoters: 1500000,
+    lgaNames: ["Aba North","Aba South","Arochukwu","Bende","Ikwuano","Isiala Ngwa North","Isiala Ngwa South","Isuikwuato","Obi Ngwa","Ohafia","Osisioma Ngwa","Ugwunagbo","Ukwa East","Ukwa West","Umuahia North","Umuahia South","Umu Nneochi"],
+  },
+  {
+    code: "EB", name: "Ebonyi", zone: "SE", capital: "Abakaliki", lgas: 13, registeredVoters: 1300000,
+    lgaNames: ["Abakaliki","Afikpo North","Afikpo South","Ebonyi","Ezza North","Ezza South","Ikwo","Ishielu","Ivo","Izzi","Ohaozara","Ohaukwu","Onicha"],
+  },
 ];
 
 export const STATE_MAP: Record<string, NigeriaState> = Object.fromEntries(
