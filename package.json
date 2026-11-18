@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev -p 3002",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "seed:2023": "node scripts/seed-2023-official.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.26.1",
