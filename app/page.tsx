@@ -579,7 +579,7 @@ export default function ElectionDashboard() {
               </p>
             </div>
 
-            {/* Right: clock + live badge + upload */}
+            {/* Right: clock + live badge */}
             <div className="flex items-center gap-3 shrink-0">
               <LiveClock />
               <div className="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow">

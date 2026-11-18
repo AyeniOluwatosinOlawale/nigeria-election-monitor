@@ -108,12 +108,6 @@ export default function QueueMonitor() {
           <h2 className="text-nigeria-dark font-bold text-lg">OCR Processing Queue</h2>
           <p className="text-gray-500 text-sm">Live status of uploaded result sheets</p>
         </div>
-        <a
-          href="/upload"
-          className="bg-nigeria-green text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
-        >
-          + Upload Sheets
-        </a>
       </div>
 
       {/* Stats strip */}
@@ -137,7 +131,7 @@ export default function QueueMonitor() {
         <div className="px-5 py-10 text-center text-gray-400">
           <div className="text-3xl mb-2">📭</div>
           <p className="text-sm font-medium">No sheets uploaded yet</p>
-          <p className="text-xs mt-1">Use the Upload Sheets button to submit result photos</p>
+          <p className="text-xs mt-1">Result sheets are sourced from the INEC portal — inecelectionresults.ng</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
