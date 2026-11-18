@@ -146,6 +146,70 @@ export async function fetchLGAResults(
   }
 }
 
+// ─── fetchPUResults ──────────────────────────────────────────────────────────
+
+export interface PUResult {
+  puCode: string;
+  puName: string;
+  accreditedVoters: number;
+  status: ResultStatus;
+  overVoted: boolean;
+  parties: { partyCode: string; votes: number; percentage: number }[];
+  totalVotes: number;
+}
+
+export async function fetchPUResults(
+  electionId: string,
+  stateCode: string,
+  lgaName: string
+): Promise<PUResult[]> {
+  try {
+    const { data, error } = await supabase
+      .from('ng_election_pu_results')
+      .select('pu_code,pu_name,party_code,votes,accredited_voters,status,over_voted')
+      .eq('election_id', electionId)
+      .eq('state_code', stateCode)
+      .eq('lga_name', lgaName)
+      .order('pu_code');
+
+    if (error) {
+      console.error('[db] fetchPUResults error:', error.message);
+      return [];
+    }
+    if (!data || data.length === 0) return [];
+
+    // Group by pu_code
+    const grouped: Record<string, typeof data> = {};
+    for (const row of data) {
+      if (!grouped[row.pu_code]) grouped[row.pu_code] = [];
+      grouped[row.pu_code].push(row);
+    }
+
+    return Object.values(grouped).map((rows) => {
+      const ref = rows[0];
+      const parties = rows
+        .map((r) => ({ partyCode: r.party_code, votes: r.votes }))
+        .sort((a, b) => b.votes - a.votes);
+      const totalVotes = parties.reduce((s, r) => s + r.votes, 0);
+      return {
+        puCode: ref.pu_code,
+        puName: ref.pu_name,
+        accreditedVoters: ref.accredited_voters,
+        status: ref.status as ResultStatus,
+        overVoted: ref.over_voted ?? false,
+        totalVotes,
+        parties: parties.map((r) => ({
+          ...r,
+          percentage: totalVotes > 0 ? (r.votes / totalVotes) * 100 : 0,
+        })),
+      };
+    });
+  } catch (err) {
+    console.error('[db] fetchPUResults unexpected error:', err);
+    return [];
+  }
+}
+
 // ─── fetchOverVotedResults ───────────────────────────────────────────────────
 
 export interface OverVotedRecord {

@@ -8,8 +8,8 @@ import {
   getTotalAccredited,
   getTotalPUs,
 } from "@/lib/mock-results";
-import { fetchStateResults, fetchLGAResults, fetchOverVotedResults } from "@/lib/db";
-import type { OverVotedRecord } from "@/lib/db";
+import { fetchStateResults, fetchLGAResults, fetchOverVotedResults, fetchPUResults } from "@/lib/db";
+import type { OverVotedRecord, PUResult } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { PARTIES, PARTY_MAP, STATES, STATE_MAP, SENATORIAL_DISTRICTS, CONSTITUENCY_COUNT } from "@/lib/nigeria-data";
 import NigeriaCartogram from "@/components/NigeriaCartogram";
@@ -363,6 +363,7 @@ export default function ElectionDashboard() {
   const [selectedLGA, setSelectedLGA] = useState<string | null>(null);
   const [stateDetailTab, setStateDetailTab] = useState<"lga" | "senate">("lga");
   const [overVotedResults, setOverVotedResults] = useState<OverVotedRecord[]>([]);
+  const [puResultsCache, setPuResultsCache] = useState<Record<string, PUResult[]>>({});
 
   // Result state — null until loaded
   const [presidentialResults, setPresidentialResults] = useState<ElectionResult | null>(null);
@@ -477,6 +478,16 @@ export default function ElectionDashboard() {
     });
   }, [selectedState, activeTab, activeYear]);
 
+  // ── Load PU results when an LGA is selected ───────────────────────────────
+  useEffect(() => {
+    if (!selectedLGA || !selectedState) return;
+    const cacheKey = `${activeTab}_${activeYear}_${selectedState}_${selectedLGA}`;
+    if (puResultsCache[cacheKey]) return;
+    fetchPUResults(`${activeTab}_${activeYear}`, selectedState, selectedLGA).then((results) => {
+      setPuResultsCache((prev) => ({ ...prev, [cacheKey]: results }));
+    });
+  }, [selectedLGA, selectedState, activeTab, activeYear]);
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const activeResults = useMemo<ElectionResult>(() => {
@@ -526,10 +537,12 @@ export default function ElectionDashboard() {
     const stateResult = activeResults.byState[selectedState];
     const stateInfo = STATE_MAP[selectedState];
     if (!stateResult || !stateInfo) return null;
-    const cacheKey = `${activeTab}_${activeYear}_${selectedState}`;
-    const lgaResults = lgaResultsCache[cacheKey] ?? [];
-    return { stateResult, stateInfo, lgaResults };
-  }, [selectedState, activeResults, lgaResultsCache, activeTab, activeYear]);
+    const lgaCacheKey = `${activeTab}_${activeYear}_${selectedState}`;
+    const lgaResults = lgaResultsCache[lgaCacheKey] ?? [];
+    const puCacheKey = selectedLGA ? `${activeTab}_${activeYear}_${selectedState}_${selectedLGA}` : null;
+    const puResults = puCacheKey ? (puResultsCache[puCacheKey] ?? []) : [];
+    return { stateResult, stateInfo, lgaResults, puResults };
+  }, [selectedState, selectedLGA, activeResults, lgaResultsCache, puResultsCache, activeTab, activeYear]);
 
   const cartogramResults = useMemo(
     () => Object.values(activeResults.byState),
@@ -1005,9 +1018,73 @@ export default function ElectionDashboard() {
                     })}
                   </div>
 
-                  <p className="text-xs text-gray-400 mt-3">
-                    Polling unit-level breakdown will appear here when OCR queue processes the INEC result sheets.
-                  </p>
+                  {/* ── PU table ── */}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">
+                        Polling Units ({selectedStateData?.puResults.length ?? 0})
+                      </span>
+                      {lgaDetail?.overVoted && (
+                        <span className="text-xs text-red-600 font-bold">⚠ Over-voting detected in this LGA</span>
+                      )}
+                    </div>
+                    {(selectedStateData?.puResults.length ?? 0) === 0 ? (
+                      <p className="text-xs text-gray-400 italic">
+                        No polling unit data yet — run seed:pu or wait for 2027 OCR results.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border border-gray-100 max-h-72 overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-gray-50 z-10">
+                            <tr className="border-b border-gray-100">
+                              <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase tracking-wide">Polling Unit</th>
+                              <th className="text-right px-2 py-2 font-bold text-gray-500">Accredited</th>
+                              {stateParties.map((sp) => (
+                                <th key={sp.partyCode} className="text-right px-2 py-2 font-bold" style={{ color: PARTY_MAP[sp.partyCode]?.color ?? "#9CA3AF" }}>
+                                  {sp.partyCode}
+                                </th>
+                              ))}
+                              <th className="text-right px-2 py-2 font-bold text-gray-500">Total</th>
+                              <th className="text-center px-2 py-2 font-bold text-gray-500">Winner</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {(selectedStateData?.puResults ?? []).map((pu) => {
+                              const winner = pu.parties[0];
+                              const winnerParty = winner ? PARTY_MAP[winner.partyCode] : null;
+                              return (
+                                <tr key={pu.puCode} className={pu.overVoted ? "bg-red-50" : "hover:bg-nigeria-light/30"}>
+                                  <td className="px-3 py-2 max-w-[220px]">
+                                    <div className="font-medium text-gray-800 leading-tight truncate">{pu.puName}</div>
+                                    <div className="text-gray-400 font-mono text-[10px]">{pu.puCode}</div>
+                                    {pu.overVoted && <span className="text-red-600 text-[10px] font-bold">⚠ over-voted</span>}
+                                  </td>
+                                  <td className="px-2 py-2 text-right font-mono text-gray-500">{pu.accreditedVoters.toLocaleString()}</td>
+                                  {stateParties.map((sp) => {
+                                    const pr = pu.parties.find((p) => p.partyCode === sp.partyCode);
+                                    const isWinner = pr?.partyCode === winner?.partyCode;
+                                    return (
+                                      <td key={sp.partyCode} className={`px-2 py-2 text-right font-mono ${isWinner ? "font-bold text-gray-900" : "text-gray-500"}`}>
+                                        {pr ? pr.votes.toLocaleString() : "—"}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="px-2 py-2 text-right font-mono font-semibold text-gray-700">{pu.totalVotes.toLocaleString()}</td>
+                                  <td className="px-2 py-2 text-center">
+                                    {winnerParty ? (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-white text-[10px] font-bold" style={{ backgroundColor: winnerParty.color }}>
+                                        {winnerParty.code}
+                                      </span>
+                                    ) : "—"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
