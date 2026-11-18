@@ -855,328 +855,214 @@ export default function ElectionDashboard() {
 
         {/* ── STATE DETAIL PANEL ───────────────────────────────────────── */}
         {selectedStateData && (() => {
-          // Parties that have votes in this state (sorted by votes)
           const stateParties = selectedStateData.stateResult.results
             .filter((r) => r.votes > 0)
             .slice(0, 4);
 
-          // Senatorial districts for this state
           const stateSenateDistricts = SENATORIAL_DISTRICTS.filter(
             (d) => d.stateCode === selectedState
           );
 
-          // For senate tab: estimate district totals by splitting state LGA data into thirds
           const lgaResults = selectedStateData.lgaResults;
           const senateLGAGroups: AggregateResult[][] = [[], [], []];
           lgaResults.forEach((lga, i) => {
             senateLGAGroups[Math.floor(i / Math.ceil(lgaResults.length / 3))]?.push(lga) ?? senateLGAGroups[2].push(lga);
           });
 
-          // Selected LGA detail
-          const lgaDetail = selectedLGA
-            ? lgaResults.find((l) => l.name === selectedLGA)
-            : null;
-
           return (
             <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
-              {/* ── Header with breadcrumb ── */}
+              {/* ── Header ── */}
               <div className="bg-nigeria-green text-white px-5 py-4 flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  {/* Breadcrumb */}
-                  <div className="flex items-center gap-1.5 text-white/60 text-xs mb-1 flex-wrap">
-                    <button
-                      onClick={() => { setSelectedState(null); setSelectedLGA(null); }}
-                      className="hover:text-white transition-colors font-medium"
-                    >
-                      All States
-                    </button>
+                  <div className="flex items-center gap-1.5 text-white/60 text-xs mb-1">
+                    <button onClick={() => { setSelectedState(null); setSelectedLGA(null); }} className="hover:text-white font-medium">All States</button>
                     <span>/</span>
-                    <button
-                      onClick={() => setSelectedLGA(null)}
-                      className={selectedLGA ? "hover:text-white transition-colors font-medium" : "text-white font-bold"}
-                    >
-                      {selectedStateData.stateInfo.name}
-                    </button>
-                    {selectedLGA && (
-                      <>
-                        <span>/</span>
-                        <span className="text-white font-bold truncate">{selectedLGA}</span>
-                      </>
-                    )}
+                    <span className="text-white font-bold">{selectedStateData.stateInfo.name}</span>
                   </div>
-
-                  <h3 className="font-bold text-lg leading-tight">
-                    {selectedLGA
-                      ? `${selectedLGA} LGA`
-                      : `${selectedStateData.stateInfo.name} State`}
-                  </h3>
+                  <h3 className="font-bold text-lg">{selectedStateData.stateInfo.name} State</h3>
                   <div className="flex items-center gap-2 mt-1 text-sm text-white/70 flex-wrap">
-                    {!selectedLGA && (
-                      <>
-                        <span>Capital: {selectedStateData.stateInfo.capital}</span>
-                        <span>·</span>
-                        <span>Zone: {selectedStateData.stateInfo.zone}</span>
-                        <span>·</span>
-                        <span>{selectedStateData.stateInfo.lgas} LGAs</span>
-                        <span>·</span>
-                      </>
-                    )}
-                    <StatusBadge status={selectedLGA ? (lgaDetail?.status ?? "pending") : selectedStateData.stateResult.status} />
-                    {selectedStateData.stateResult.overVoted && !selectedLGA && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold animate-pulse">
-                        ⚠ OVER-VOTED
-                      </span>
+                    <span>Capital: {selectedStateData.stateInfo.capital}</span>
+                    <span>·</span>
+                    <span>Zone: {selectedStateData.stateInfo.zone}</span>
+                    <span>·</span>
+                    <span>{selectedStateData.stateInfo.lgas} LGAs</span>
+                    <span>·</span>
+                    <StatusBadge status={selectedStateData.stateResult.status} />
+                    {selectedStateData.stateResult.overVoted && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold animate-pulse">⚠ OVER-VOTED</span>
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => { setSelectedState(null); setSelectedLGA(null); }}
-                  className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-2 transition-colors shrink-0"
-                  aria-label="Close"
-                >
+                <button onClick={() => { setSelectedState(null); setSelectedLGA(null); }} className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-2 shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
-              {/* ── Party vote summary strip ── */}
-              {(() => {
-                const displayResults = selectedLGA && lgaDetail
-                  ? lgaDetail.results.filter((r) => r.votes > 0).slice(0, 4)
-                  : stateParties;
-                const totalVotes = displayResults.reduce((s, r) => s + r.votes, 0);
-                return (
-                  <div className="grid divide-x divide-gray-100 border-b border-gray-100"
-                    style={{ gridTemplateColumns: `repeat(${Math.min(displayResults.length, 4)}, 1fr)` }}>
-                    {displayResults.map((pr) => {
-                      const party = PARTY_MAP[pr.partyCode];
-                      const pct = totalVotes > 0 ? (pr.votes / totalVotes) * 100 : 0;
-                      return (
-                        <div key={pr.partyCode} className="px-4 py-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: party?.color ?? "#9CA3AF" }} />
-                            <span className="text-xs font-bold text-gray-700">{pr.partyCode}</span>
-                          </div>
-                          <div className="text-lg font-black text-nigeria-dark tabular-nums">
-                            {formatVotes(pr.votes)}
-                          </div>
-                          <div className="text-xs text-gray-500">{pct.toFixed(1)}%</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-
-              {/* ── LGA detail view (when an LGA is clicked) ── */}
-              {selectedLGA && lgaDetail && (
-                <div className="px-5 py-4 bg-nigeria-light/30 border-b border-gray-100">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                    <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
-                      <div className="text-xs text-gray-500 font-medium">Accredited Voters</div>
-                      <div className="text-sm font-bold text-nigeria-dark">{lgaDetail.accreditedVoters.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
-                      <div className="text-xs text-gray-500 font-medium">Total PUs</div>
-                      <div className="text-sm font-bold text-nigeria-dark">{lgaDetail.totalPUs.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
-                      <div className="text-xs text-gray-500 font-medium">PUs Reported</div>
-                      <div className="text-sm font-bold text-nigeria-dark">{lgaDetail.reportedPUs.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
-                      <div className="text-xs text-gray-500 font-medium">Total Votes Cast</div>
-                      <div className="text-sm font-bold text-nigeria-dark">
-                        {lgaDetail.results.reduce((s, r) => s + r.votes, 0).toLocaleString()}
+              {/* ── State party summary strip ── */}
+              <div className="grid divide-x divide-gray-100 border-b border-gray-100"
+                style={{ gridTemplateColumns: `repeat(${Math.min(stateParties.length, 4)}, 1fr)` }}>
+                {stateParties.map((pr) => {
+                  const party = PARTY_MAP[pr.partyCode];
+                  const total = stateParties.reduce((s, r) => s + r.votes, 0);
+                  return (
+                    <div key={pr.partyCode} className="px-4 py-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: party?.color ?? "#9CA3AF" }} />
+                        <span className="text-xs font-bold text-gray-700">{pr.partyCode}</span>
                       </div>
+                      <div className="text-lg font-black text-nigeria-dark tabular-nums">{formatVotes(pr.votes)}</div>
+                      <div className="text-xs text-gray-500">{total > 0 ? ((pr.votes / total) * 100).toFixed(1) : "0.0"}%</div>
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
 
-                  {/* Per-party vote bars */}
-                  <div className="space-y-2">
-                    {lgaDetail.results.filter((r) => r.votes > 0).map((pr) => {
-                      const party = PARTY_MAP[pr.partyCode];
-                      return (
-                        <div key={pr.partyCode} className="flex items-center gap-3">
-                          <span className="w-10 text-xs font-bold text-gray-700 shrink-0">{pr.partyCode}</span>
-                          <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-500"
-                              style={{ width: `${pr.percentage ?? 0}%`, backgroundColor: party?.color ?? "#9CA3AF" }}
-                            />
-                          </div>
-                          <span className="text-xs font-mono text-gray-700 w-16 text-right shrink-0">
-                            {pr.votes.toLocaleString()}
-                          </span>
-                          <span className="text-xs text-gray-500 w-10 text-right shrink-0">
-                            {(pr.percentage ?? 0).toFixed(1)}%
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* ── PU table ── */}
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">
-                        Polling Units ({selectedStateData?.puResults.length ?? 0})
-                      </span>
-                      {lgaDetail?.overVoted && (
-                        <span className="text-xs text-red-600 font-bold">⚠ Over-voting detected in this LGA</span>
-                      )}
-                    </div>
-                    {(selectedStateData?.puResults.length ?? 0) === 0 ? (
-                      <p className="text-xs text-gray-400 italic">
-                        No polling unit data yet — run seed:pu or wait for 2027 OCR results.
-                      </p>
-                    ) : (
-                      <div className="overflow-x-auto rounded-lg border border-gray-100 max-h-72 overflow-y-auto">
-                        <table className="w-full text-xs">
-                          <thead className="sticky top-0 bg-gray-50 z-10">
-                            <tr className="border-b border-gray-100">
-                              <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase tracking-wide">Polling Unit</th>
-                              <th className="text-right px-2 py-2 font-bold text-gray-500">Accredited</th>
-                              {stateParties.map((sp) => (
-                                <th key={sp.partyCode} className="text-right px-2 py-2 font-bold" style={{ color: PARTY_MAP[sp.partyCode]?.color ?? "#9CA3AF" }}>
-                                  {sp.partyCode}
-                                </th>
-                              ))}
-                              <th className="text-right px-2 py-2 font-bold text-gray-500">Total</th>
-                              <th className="text-center px-2 py-2 font-bold text-gray-500">Winner</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50">
-                            {(selectedStateData?.puResults ?? []).map((pu) => {
-                              const winner = pu.parties[0];
-                              const winnerParty = winner ? PARTY_MAP[winner.partyCode] : null;
-                              return (
-                                <tr key={pu.puCode} className={pu.overVoted ? "bg-red-50" : "hover:bg-nigeria-light/30"}>
-                                  <td className="px-3 py-2 max-w-[220px]">
-                                    <div className="font-medium text-gray-800 leading-tight truncate">{pu.puName}</div>
-                                    <div className="text-gray-400 font-mono text-[10px]">{pu.puCode}</div>
-                                    {pu.overVoted && <span className="text-red-600 text-[10px] font-bold">⚠ over-voted</span>}
-                                  </td>
-                                  <td className="px-2 py-2 text-right font-mono text-gray-500">{pu.accreditedVoters.toLocaleString()}</td>
-                                  {stateParties.map((sp) => {
-                                    const pr = pu.parties.find((p) => p.partyCode === sp.partyCode);
-                                    const isWinner = pr?.partyCode === winner?.partyCode;
-                                    return (
-                                      <td key={sp.partyCode} className={`px-2 py-2 text-right font-mono ${isWinner ? "font-bold text-gray-900" : "text-gray-500"}`}>
-                                        {pr ? pr.votes.toLocaleString() : "—"}
-                                      </td>
-                                    );
-                                  })}
-                                  <td className="px-2 py-2 text-right font-mono font-semibold text-gray-700">{pu.totalVotes.toLocaleString()}</td>
-                                  <td className="px-2 py-2 text-center">
-                                    {winnerParty ? (
-                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-white text-[10px] font-bold" style={{ backgroundColor: winnerParty.color }}>
-                                        {winnerParty.code}
-                                      </span>
-                                    ) : "—"}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+              {/* ── Tabs ── */}
+              <div className="border-b border-gray-100 px-5">
+                <div className="flex gap-0 -mb-px">
+                  {(["lga", "senate"] as const).map((tab) => (
+                    <button key={tab} onClick={() => { setStateDetailTab(tab); setSelectedLGA(null); }}
+                      className={["px-4 py-2.5 text-xs font-bold border-b-2 transition-colors",
+                        stateDetailTab === tab ? "border-nigeria-green text-nigeria-green" : "border-transparent text-gray-400 hover:text-gray-600"].join(" ")}>
+                      {tab === "lga" ? `LGAs (${selectedStateData.stateInfo.lgas})` : "Senatorial Districts"}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
 
-              {/* ── Tabs: By LGA / By Senatorial District ── */}
-              {!selectedLGA && (
-                <div className="border-b border-gray-100 px-5">
-                  <div className="flex gap-0 -mb-px">
-                    {(["lga", "senate"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => setStateDetailTab(tab)}
-                        className={[
-                          "px-4 py-2.5 text-xs font-bold border-b-2 transition-colors",
-                          stateDetailTab === tab
-                            ? "border-nigeria-green text-nigeria-green"
-                            : "border-transparent text-gray-400 hover:text-gray-600",
-                        ].join(" ")}
-                      >
-                        {tab === "lga" ? `LGAs (${selectedStateData.stateInfo.lgas})` : "Senatorial Districts"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── LGA tab content ── */}
-              {!selectedLGA && stateDetailTab === "lga" && (
+              {/* ── LGA tab: each row expands inline to show PUs ── */}
+              {stateDetailTab === "lga" && (
                 lgaResults.length === 0 ? (
                   <div className="px-5 py-10 text-center text-gray-400">
                     <p className="text-sm font-medium">No LGA data loaded yet.</p>
-                    <p className="text-xs mt-1">Run seed_lga_2023.sql in Supabase to populate LGA results.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                          <th className="text-left px-4 py-3">LGA</th>
-                          {stateParties.map((pr) => {
-                            const p = PARTY_MAP[pr.partyCode];
-                            return (
-                              <th key={pr.partyCode} className="text-right px-3 py-3">
-                                <span className="inline-flex items-center gap-1">
-                                  <span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: p?.color ?? "#9CA3AF" }} />
-                                  {pr.partyCode}
-                                </span>
-                              </th>
-                            );
-                          })}
+                          <th className="text-left px-4 py-3 w-8"></th>
+                          <th className="text-left px-2 py-3">LGA</th>
+                          {stateParties.map((pr) => (
+                            <th key={pr.partyCode} className="text-right px-3 py-3">
+                              <span className="inline-flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: PARTY_MAP[pr.partyCode]?.color ?? "#9CA3AF" }} />
+                                {pr.partyCode}
+                              </span>
+                            </th>
+                          ))}
                           <th className="text-right px-3 py-3">Total</th>
                           <th className="text-center px-3 py-3">Winner</th>
                           <th className="text-center px-3 py-3">Status</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-50">
+                      <tbody>
                         {lgaResults.map((lga) => {
                           const totalVotes = lga.results.reduce((s, r) => s + r.votes, 0);
                           const winner = lga.results[0];
                           const winnerParty = winner ? PARTY_MAP[winner.partyCode] : null;
+                          const isExpanded = selectedLGA === lga.name;
+                          const puCacheKey = `${activeTab}_${activeYear}_${selectedState}_${lga.name}`;
+                          const puRows = puResultsCache[puCacheKey] ?? [];
+
                           return (
-                            <tr
-                              key={lga.id}
-                              className="hover:bg-nigeria-light/40 transition-colors cursor-pointer"
-                              onClick={() => setSelectedLGA(lga.name)}
-                            >
-                              <td className="px-4 py-2.5">
-                                <div className="font-semibold text-gray-800 text-sm">{lga.name}</div>
-                                <div className="text-xs text-gray-400 mt-0.5">{lga.totalPUs} PUs · {lga.accreditedVoters.toLocaleString()} accredited</div>
-                              </td>
-                              {stateParties.map((sp) => {
-                                const pr = lga.results.find((r) => r.partyCode === sp.partyCode);
-                                const isWinner = pr?.partyCode === winner?.partyCode;
-                                return (
-                                  <td key={sp.partyCode} className={`px-3 py-2.5 text-right font-mono text-xs ${isWinner ? "font-bold text-gray-900" : "text-gray-500"}`}>
-                                    {pr ? pr.votes.toLocaleString() : "—"}
+                            <>
+                              {/* LGA row */}
+                              <tr
+                                key={lga.id}
+                                className={`border-b border-gray-50 cursor-pointer transition-colors ${isExpanded ? "bg-nigeria-light/50" : "hover:bg-nigeria-light/30"}`}
+                                onClick={() => setSelectedLGA(isExpanded ? null : lga.name)}
+                              >
+                                <td className="px-4 py-2.5 text-gray-400 text-xs">
+                                  <span className={`inline-block transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                                </td>
+                                <td className="px-2 py-2.5">
+                                  <div className="font-semibold text-gray-800 text-sm">{lga.name}</div>
+                                  <div className="text-xs text-gray-400 mt-0.5">{lga.totalPUs} PUs · {lga.accreditedVoters.toLocaleString()} accredited</div>
+                                </td>
+                                {stateParties.map((sp) => {
+                                  const pr = lga.results.find((r) => r.partyCode === sp.partyCode);
+                                  const isWinner = pr?.partyCode === winner?.partyCode;
+                                  return (
+                                    <td key={sp.partyCode} className={`px-3 py-2.5 text-right font-mono text-xs ${isWinner ? "font-bold text-gray-900" : "text-gray-500"}`}>
+                                      {pr ? pr.votes.toLocaleString() : "—"}
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-gray-700">{totalVotes.toLocaleString()}</td>
+                                <td className="px-3 py-2.5 text-center">
+                                  {winnerParty ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-bold" style={{ backgroundColor: winnerParty.color }}>
+                                      {winnerParty.code}
+                                    </span>
+                                  ) : "—"}
+                                </td>
+                                <td className="px-3 py-2.5 text-center"><StatusBadge status={lga.status} /></td>
+                              </tr>
+
+                              {/* Inline PU rows when expanded */}
+                              {isExpanded && (
+                                <tr key={`${lga.id}-pu`}>
+                                  <td colSpan={stateParties.length + 5} className="p-0 bg-gray-50 border-b border-gray-200">
+                                    {puRows.length === 0 ? (
+                                      <div className="px-10 py-4 text-xs text-gray-400 italic">Loading polling units…</div>
+                                    ) : (
+                                      <table className="w-full text-xs">
+                                        <thead>
+                                          <tr className="bg-gray-100 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                                            <th className="text-left px-10 py-2">Polling Unit</th>
+                                            <th className="text-right px-3 py-2">Accredited</th>
+                                            {stateParties.map((sp) => (
+                                              <th key={sp.partyCode} className="text-right px-3 py-2 font-bold" style={{ color: PARTY_MAP[sp.partyCode]?.color ?? "#9CA3AF" }}>
+                                                {sp.partyCode}
+                                              </th>
+                                            ))}
+                                            <th className="text-right px-3 py-2">Total</th>
+                                            <th className="text-center px-3 py-2">Winner</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                          {puRows.map((pu) => {
+                                            const puWinner = pu.parties[0];
+                                            const puWinnerParty = puWinner ? PARTY_MAP[puWinner.partyCode] : null;
+                                            return (
+                                              <tr key={pu.puCode} className={pu.overVoted ? "bg-red-50" : "hover:bg-white"}>
+                                                <td className="px-10 py-1.5">
+                                                  <div className="font-medium text-gray-700 leading-tight">{pu.puName}</div>
+                                                  <div className="text-gray-400 font-mono text-[10px]">{pu.puCode}</div>
+                                                  {pu.overVoted && <span className="text-red-600 text-[10px] font-bold">⚠ over-voted</span>}
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right font-mono text-gray-500">{pu.accreditedVoters.toLocaleString()}</td>
+                                                {stateParties.map((sp) => {
+                                                  const pr = pu.parties.find((p) => p.partyCode === sp.partyCode);
+                                                  const isW = pr?.partyCode === puWinner?.partyCode;
+                                                  return (
+                                                    <td key={sp.partyCode} className={`px-3 py-1.5 text-right font-mono ${isW ? "font-bold text-gray-900" : "text-gray-500"}`}>
+                                                      {pr ? pr.votes.toLocaleString() : "—"}
+                                                    </td>
+                                                  );
+                                                })}
+                                                <td className="px-3 py-1.5 text-right font-mono font-semibold text-gray-700">{pu.totalVotes.toLocaleString()}</td>
+                                                <td className="px-3 py-1.5 text-center">
+                                                  {puWinnerParty ? (
+                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-white text-[10px] font-bold" style={{ backgroundColor: puWinnerParty.color }}>
+                                                      {puWinnerParty.code}
+                                                    </span>
+                                                  ) : "—"}
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    )}
                                   </td>
-                                );
-                              })}
-                              <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-gray-700">
-                                {totalVotes.toLocaleString()}
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                {winnerParty ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-bold" style={{ backgroundColor: winnerParty.color }}>
-                                    {winnerParty.code}
-                                  </span>
-                                ) : "—"}
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                <StatusBadge status={lga.status} />
-                              </td>
-                            </tr>
+                                </tr>
+                              )}
+                            </>
                           );
                         })}
                       </tbody>
