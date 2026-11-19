@@ -393,12 +393,17 @@ async function scrapeIrevElection(election) {
   console.log(`[IREV] ${election.label}: ${lgas.length} LGAs`);
   let totalQueued = 0;
 
+  let lgaIndex = 0;
   for (const lga of lgas) {
+    lgaIndex++;
     const lgaObj  = typeof lga.lga === "object" ? lga.lga : null;
     const lgaName = lgaObj?.name ?? lga.name ?? lga.lga_name ?? String(lga._id);
     const wards   = lga.wards ?? [];
     const stateId = (wards[0] ?? lga).state_id ?? lga.state_id;
     const stateC  = IREV_STATE_ID_MAP[stateId] ?? "XX";
+    if (lgaIndex % 50 === 0) {
+      console.log(`[IREV] ${election.label}: ${lgaIndex}/${lgas.length} LGAs done, ${totalQueued} queued so far`);
+    }
 
     for (const ward of wards) {
       const wid      = ward._id ?? ward.id;
