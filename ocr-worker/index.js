@@ -332,6 +332,137 @@ async function processJob(job) {
   }
 }
 
+// ─── IREV scraper ─────────────────────────────────────────────────────────────
+//
+// Automatically crawls the INEC IREV API on startup and populates ocr_queue
+// with every result sheet PDF URL for all 4 elections.
+// Safe to re-run — skips elections that already have queue entries.
+
+const IREV_BASE = "https://dolphin-app-sleqh.ondigitalocean.app/api/v1";
+
+const IREV_ELECTIONS = [
+  { id: "63f8f25b594e164f8146a213", key: "presidential_2023",  label: "Presidential 2023" },
+  { id: "6549830e8f260c2694ceab91", key: "gubernatorial_2023", label: "Gubernatorial 2023" },
+  { id: "6a35c845f42f4600b2634026", key: "senate_2023",        label: "Senate 2023" },
+  { id: "6411dadda485c732b1f1a898", key: "house_reps_2023",    label: "House of Reps 2023" },
+];
+
+// INEC numeric state_id → 2-letter code
+const IREV_STATE_ID_MAP = {
+   1:"AB", 2:"AD", 3:"AK", 4:"AN", 5:"BA", 6:"BY", 7:"BE", 8:"BO", 9:"CR",10:"DL",
+  11:"EB",12:"ED",13:"EK",14:"EN",15:"FC",16:"GO",17:"IM",18:"JI",19:"KD",20:"KN",
+  21:"KT",22:"KB",23:"KO",24:"KW",25:"LA",26:"NA",27:"NI",28:"OG",29:"ON",30:"OS",
+  31:"OY",32:"PL",33:"RV",34:"SO",35:"TA",36:"YO",37:"ZA",
+};
+
+async function irevGet(path) {
+  const res = await fetch(`${IREV_BASE}${path}`, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`IREV ${path} → ${res.status}`);
+  return res.json();
+}
+
+function irevFindArray(d) {
+  if (Array.isArray(d)) return d;
+  if (!d || typeof d !== "object") return [];
+  for (const v of Object.values(d)) {
+    if (Array.isArray(v) && v.length > 0) return v;
+  }
+  return [];
+}
+
+function irevImageUrl(pu) {
+  const doc = pu?.document;
+  if (!doc) return null;
+  if (typeof doc === "string") return doc;
+  return doc.url ?? doc.document_url ?? doc.backup_url ?? null;
+}
+
+async function scrapeIrevElection(election) {
+  // Check if already scraped — skip if any queue entries exist for this election
+  const { count } = await supabase
+    .from("ocr_queue")
+    .select("*", { count: "exact", head: true })
+    .eq("election_id", election.key);
+
+  if (count > 0) {
+    console.log(`[IREV] ${election.label}: already has ${count} queue entries — skipping`);
+    return;
+  }
+
+  console.log(`[IREV] Scraping ${election.label}...`);
+
+  let lgas;
+  try {
+    lgas = irevFindArray(await irevGet(`/elections/${election.id}/lga`));
+  } catch (e) {
+    console.error(`[IREV] LGA fetch failed for ${election.label}:`, e.message);
+    return;
+  }
+
+  console.log(`[IREV] ${election.label}: ${lgas.length} LGAs`);
+  let totalQueued = 0;
+
+  for (const lga of lgas) {
+    const lgaObj  = typeof lga.lga === "object" ? lga.lga : null;
+    const lgaName = lgaObj?.name ?? lga.name ?? lga.lga_name ?? String(lga._id);
+    const wards   = lga.wards ?? [];
+    const stateId = (wards[0] ?? lga).state_id ?? lga.state_id;
+    const stateC  = IREV_STATE_ID_MAP[stateId] ?? "XX";
+
+    for (const ward of wards) {
+      const wid      = ward._id ?? ward.id;
+      const wardName = ward.name ?? wid;
+      await sleep(250);
+
+      let pus;
+      try {
+        pus = irevFindArray(await irevGet(`/elections/${election.id}/pus?ward=${wid}`));
+      } catch (e) {
+        continue;
+      }
+
+      const rows = [];
+      for (const pu of pus) {
+        const img = irevImageUrl(pu);
+        if (!img) continue;
+        rows.push({
+          image_url:   img,
+          election_id: election.key,
+          state_code:  stateC,
+          lga_name:    lgaName,
+          ward_name:   wardName,
+          pu_code:     pu.pu_code ?? pu.code ?? pu._id,
+          file_name:   pu.name ?? pu.pu_name ?? null,
+          status:      "pending",
+        });
+      }
+
+      if (rows.length > 0) {
+        const { error } = await supabase.from("ocr_queue").insert(rows);
+        if (error) {
+          console.error(`[IREV] Insert error (${lgaName}/${wardName}):`, error.message);
+        } else {
+          totalQueued += rows.length;
+        }
+      }
+    }
+  }
+
+  console.log(`[IREV] ${election.label}: queued ${totalQueued} result sheets`);
+}
+
+async function scrapeAllIrev() {
+  console.log("[IREV] Starting automatic IREV scrape...");
+  for (const election of IREV_ELECTIONS) {
+    try {
+      await scrapeIrevElection(election);
+    } catch (e) {
+      console.error(`[IREV] Fatal error for ${election.label}:`, e.message);
+    }
+  }
+  console.log("[IREV] Scrape complete.");
+}
+
 // ─── Polling loop ─────────────────────────────────────────────────────────────
 
 let activeJobs = 0;
@@ -374,6 +505,9 @@ async function main() {
     .select("*", { count: "exact", head: true });
 
   if (count > 0) console.log(`Reset ${count} stuck jobs back to "pending"`);
+
+  // Auto-populate queue from INEC IREV for all 4 elections
+  await scrapeAllIrev();
 
   while (true) {
     await poll();
