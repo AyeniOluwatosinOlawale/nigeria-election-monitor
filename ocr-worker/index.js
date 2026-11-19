@@ -202,7 +202,25 @@ async function writeResultsToSupabase(job, result, overVoted) {
     }
   }
 
-  // ── 3. PU-level upsert (requires both LGA name and PU code) ──────────────
+  // ── 3. Ward/Registration Area accumulation (requires LGA + ward name) ───────
+  if (lgaName && wardName) {
+    for (const pr of partyRows) {
+      const { error } = await supabase.rpc("upsert_ocr_ward_result", {
+        p_election_id: job.election_id,
+        p_state_code:  stateCode,
+        p_lga_name:    lgaName,
+        p_ward_name:   wardName,
+        p_party_code:  pr.party,
+        p_votes:       pr.votes ?? 0,
+        p_accredited:  accredited,
+      });
+      if (error) {
+        console.error(`[${job.id}] Ward RPC error (${pr.party}):`, error.message);
+      }
+    }
+  }
+
+  // ── 4. PU-level upsert (requires both LGA name and PU code) ──────────────
   if (lgaName && puCode) {
     for (const pr of partyRows) {
       const { error } = await supabase.rpc("upsert_ocr_pu_result", {
@@ -223,7 +241,7 @@ async function writeResultsToSupabase(job, result, overVoted) {
     }
   }
 
-  const levels = ["state", lgaName && "LGA", lgaName && puCode && "PU"].filter(Boolean).join(", ");
+  const levels = ["state", lgaName && "LGA", lgaName && wardName && "ward", lgaName && puCode && "PU"].filter(Boolean).join(", ");
   console.log(`[${job.id}] Wrote ${partyRows.length} party rows at ${levels} level`);
 }
 
