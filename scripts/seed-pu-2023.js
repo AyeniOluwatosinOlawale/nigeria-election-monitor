@@ -21,6 +21,24 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Registration area name suffixes — mirrors real INEC ward naming patterns
+const RA_SUFFIXES = [
+  "Central", "North", "South", "East", "West",
+  "I", "II", "III", "IV", "V",
+  "Urban I", "Urban II", "Rural I", "Rural II",
+  "Township", "Village", "Quarters", "Layout",
+];
+
+// Generate a registration area name from LGA name + ward index
+function generateRegistrationArea(lgaName, wardIndex) {
+  // Strip common suffixes to get the base community name
+  const base = lgaName
+    .replace(/\s*(LGA|Local Government Area|North|South|East|West|Central|Urban|Rural)\s*$/i, "")
+    .trim();
+  const suffix = RA_SUFFIXES[wardIndex % RA_SUFFIXES.length];
+  return `${base} ${suffix}`;
+}
+
 // Realistic PU name templates used by INEC
 const PU_VENUES = [
   "Primary School",
@@ -45,8 +63,8 @@ const PU_VENUES = [
   "Civic Centre",
 ];
 
-function generatePUName(ward, puIndex, stateCode) {
-  const venue = PU_VENUES[(ward * 7 + puIndex * 3) % PU_VENUES.length];
+function generatePUName(lgaIndex, ward, puIndex) {
+  const venue = PU_VENUES[(lgaIndex * 11 + ward * 7 + puIndex * 3) % PU_VENUES.length];
   const suffix = puIndex === 0 ? "I" : puIndex === 1 ? "II" : puIndex === 2 ? "III" : `${puIndex + 1}`;
   return `Ward ${String(ward + 1).padStart(2, "0")} ${venue} ${suffix}`;
 }
@@ -78,18 +96,30 @@ function distributeVotes(total, count) {
 async function run() {
   console.log("Fetching LGA results for presidential_2023...");
 
-  // Load all LGA results grouped by state+LGA
-  const { data: lgaRows, error } = await supabase
-    .from("ng_election_lga_results")
-    .select("*")
-    .eq("election_id", "presidential_2023")
-    .order("state_code")
-    .order("lga_name");
+  // Paginate to fetch all rows (Supabase default limit is 1000)
+  const lgaRows = [];
+  const PAGE = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("ng_election_lga_results")
+      .select("*")
+      .eq("election_id", "presidential_2023")
+      .order("state_code")
+      .order("lga_name")
+      .range(from, from + PAGE - 1);
 
-  if (error) {
-    console.error("Failed to fetch LGA results:", error.message);
-    process.exit(1);
+    if (error) {
+      console.error("Failed to fetch LGA results:", error.message);
+      process.exit(1);
+    }
+    if (!data || data.length === 0) break;
+    lgaRows.push(...data);
+    console.log(`  Fetched ${lgaRows.length} LGA rows so far...`);
+    if (data.length < PAGE) break;
+    from += PAGE;
   }
+  console.log(`Total LGA rows fetched: ${lgaRows.length}`);
 
   // Group by state+LGA
   const lgaMap = {};
@@ -135,7 +165,8 @@ async function run() {
       const ward = Math.floor(puIdx / 10);
       const wardPuIdx = puIdx % 10;
       const puCode = generatePUCode(state_code, lgaIndex, ward, wardPuIdx);
-      const puName = generatePUName(ward, wardPuIdx, state_code);
+      const puName = generatePUName(lgaIndex, ward, wardPuIdx);
+      const registrationArea = generateRegistrationArea(lga_name, ward);
       const accredited = accreditedDist[puIdx] ?? 0;
       const totalVotes = parties.reduce((s, p) => s + (partyDistributions[p][puIdx] ?? 0), 0);
       const overVoted = totalVotes > accredited && accredited > 0;
@@ -145,6 +176,7 @@ async function run() {
           election_id: "presidential_2023",
           state_code,
           lga_name,
+          registration_area: registrationArea,
           pu_code: puCode,
           pu_name: puName,
           party_code: party,
@@ -158,21 +190,31 @@ async function run() {
   }
 
   console.log(`Generated ${rows.length} PU-party rows across ${lgaEntries.length} LGAs.`);
-  console.log("Inserting in batches of 200...");
+  console.log("Inserting in batches of 500...");
 
-  const BATCH = 200;
+  const BATCH = 500;
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
-    const { error: insertErr } = await supabase
-      .from("ng_election_pu_results")
-      .upsert(batch, { onConflict: "election_id,state_code,lga_name,pu_code,party_code" });
 
-    if (insertErr) {
-      console.error(`Batch ${Math.floor(i / BATCH) + 1} error:`, insertErr.message);
-      process.exit(1);
+    let attempts = 0;
+    while (true) {
+      attempts++;
+      const { error: insertErr } = await supabase
+        .from("ng_election_pu_results")
+        .upsert(batch, { onConflict: "election_id,state_code,lga_name,pu_code,party_code" });
+
+      if (!insertErr) break;
+
+      if (attempts >= 5) {
+        console.error(`Batch ${Math.floor(i / BATCH) + 1} failed after 5 attempts:`, insertErr.message);
+        process.exit(1);
+      }
+      const wait = attempts * 2000;
+      console.warn(`  Retry ${attempts} in ${wait}ms (batch ${Math.floor(i / BATCH) + 1}):`, insertErr.message);
+      await new Promise((r) => setTimeout(r, wait));
     }
 
-    if ((i / BATCH) % 10 === 0) {
+    if ((i / BATCH) % 20 === 0) {
       console.log(`  ${Math.min(i + BATCH, rows.length).toLocaleString()} / ${rows.length.toLocaleString()}`);
     }
   }

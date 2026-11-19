@@ -307,13 +307,14 @@ for (const state of STATES) {
 }
 
 // Federal constituencies per state (total 360)
+// Official INEC allocation — total 360
 export const CONSTITUENCY_COUNT: Record<string, number> = {
-  SO: 5, KB: 5, ZA: 4, KT: 9, KN: 15, JI: 6, KD: 9,
-  BO: 8, YO: 4, AD: 6, GO: 3, BA: 7, TA: 4,
-  NI: 8, KW: 5, FC: 2, KO: 7, NA: 4, PL: 5, BE: 7,
-  LA: 20, OG: 5, OY: 9, OS: 6, ON: 5, EK: 4,
-  RV: 9, DL: 7, ED: 5, BY: 2, CR: 5, AK: 9,
-  AN: 7, IM: 8, EN: 5, AB: 4, EB: 4,
+  SO: 11, KB: 8, ZA: 7, KT: 15, KN: 24, JI: 11, KD: 16,
+  BO: 10, YO: 6,  AD: 8,  GO: 6,  BA: 12, TA: 6,
+  NI: 10, KW: 6,  FC: 2,  KO: 9,  NA: 5,  PL: 8,  BE: 11,
+  LA: 24, OG: 9,  OY: 14, OS: 9,  ON: 9,  EK: 6,
+  RV: 13, DL: 10, ED: 9,  BY: 5,  CR: 8,  AK: 10,
+  AN: 11, IM: 10, EN: 8,  AB: 8,  EB: 6,
 };
 
 export const TOTAL_REGISTERED_VOTERS = STATES.reduce(

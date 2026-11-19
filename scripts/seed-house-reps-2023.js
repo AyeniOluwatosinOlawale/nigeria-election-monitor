@@ -168,19 +168,19 @@ const CONSTITUENCIES = [
   ["EK","Ekiti","SW","Ijero/Efon",                11500, 3800,  2600,  420,  21000],
   ["EK","Ekiti","SW","Ikere/Ise-Orun/Moba",       11500, 3800,  2600,  420,  21000],
 
-  // Enugu — 8 seats (PDP 8)
-  ["EN","Enugu","SE","Aninri/Nkanu East/Nkanu West",2000,14000,  5500,  350,  25000],
-  ["EN","Enugu","SE","Awgu/Oji River/Ezeagu",       2000,14000,  5500,  350,  25000],
-  ["EN","Enugu","SE","Enugu East/Isi Uzo",          2000,14000,  5500,  350,  25000],
-  ["EN","Enugu","SE","Enugu North/Enugu South",     2500,15000,  6000,  380,  27000],
-  ["EN","Enugu","SE","Igbo Etiti/Udenu/Igbo Eze South",2000,13500,5000, 340,  24000],
-  ["EN","Enugu","SE","Igbo Eze North/Uzo Uwani",   2000,13500,  5000,  340,  24000],
-  ["EN","Enugu","SE","Nsukka",                     2200,14500,  5500,  360,  26000],
-  ["EN","Enugu","SE","Udi",                        2000,13500,  5000,  340,  24000],
+  // Enugu — 8 seats (LP 7, PDP 1) — LP dominated Enugu (391K vs 32K presidential)
+  ["EN","Enugu","SE","Aninri/Nkanu East/Nkanu West",2000, 5500, 14000,  350,  25000],  // LP
+  ["EN","Enugu","SE","Awgu/Oji River/Ezeagu",       2000, 5500, 14000,  350,  25000],  // LP
+  ["EN","Enugu","SE","Enugu East/Isi Uzo",          2000, 5500, 14000,  350,  25000],  // LP
+  ["EN","Enugu","SE","Enugu North/Enugu South",     2500,15000,  6000,  380,  27000],  // PDP (Enugu North is PDP senator)
+  ["EN","Enugu","SE","Igbo Etiti/Udenu/Igbo Eze South",2000,5000,13500, 340,  24000],  // LP
+  ["EN","Enugu","SE","Igbo Eze North/Uzo Uwani",   2000, 5000, 13500,  340,  24000],  // LP
+  ["EN","Enugu","SE","Nsukka",                     2200, 5500, 14500,  360,  26000],  // LP
+  ["EN","Enugu","SE","Udi",                        2000, 5000, 13500,  340,  24000],  // LP
 
-  // FCT — 2 seats (APC 2)
-  ["FC","FCT","NC","Abuja Municipal/Gwagwalada",   28000,15000, 11000, 2500,  65000],
-  ["FC","FCT","NC","Bwari/Kuje/Abaji/Kwali",       22000,12000,  9000, 2000,  52000],
+  // FCT — 2 seats (LP 2) — LP swept FCT presidentially and won senate seat
+  ["FC","FCT","NC","Abuja Municipal/Gwagwalada",   15000,11000, 28000, 2500,  65000],  // LP
+  ["FC","FCT","NC","Bwari/Kuje/Abaji/Kwali",       12000, 9000, 22000, 2000,  52000],  // LP
 
   // Gombe — 6 seats (APC 6)
   ["GO","Gombe","NE","Akko",                       14000, 5000,  1300, 3500,  26000],

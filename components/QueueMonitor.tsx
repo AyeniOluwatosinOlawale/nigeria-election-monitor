@@ -131,7 +131,7 @@ export default function QueueMonitor() {
         <div className="px-5 py-10 text-center text-gray-400">
           <div className="text-3xl mb-2">📭</div>
           <p className="text-sm font-medium">No sheets uploaded yet</p>
-          <p className="text-xs mt-1">Result sheets are sourced from the INEC portal — inecelectionresults.ng</p>
+          <p className="text-xs mt-1">Result sheets: inecelectionresults.ng</p>
         </div>
       ) : (
         <div className="overflow-x-auto">

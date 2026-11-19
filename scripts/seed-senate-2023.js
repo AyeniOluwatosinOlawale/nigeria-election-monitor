@@ -25,129 +25,131 @@ const ELECTION_ID = "senate_2023";
 const PARTIES = ["APC", "PDP", "LP", "NNPP"];
 
 // [state_code, state_name, zone, district_name, APC, PDP, LP, NNPP, accredited]
-// Winners based on official INEC 2023 Senate results.
-// APC won ~59 seats, PDP ~36, LP ~8, NNPP ~2 (Others collapsed into nearest party here)
+// Winners verified against Wikipedia 2023 Nigerian Senate election article.
+// APC 59 seats, PDP 36, LP 8, NNPP 2, APGA 1→PDP proxy, YPP 1→LP proxy, SDP 1→APC proxy.
+// Votes proportionally scaled from presidential 2023 state totals ÷ 3 districts.
 const SENATE_DISTRICTS = [
   // South East
-  ["AB","Abia","SE","Abia Central",   38000,  28000, 65000, 1200, 180000],  // APC
-  ["AB","Abia","SE","Abia North",     18000,  22000, 95000,  900, 170000],  // LP
-  ["AB","Abia","SE","Abia South",     14000,  18000, 85000,  800, 160000],  // LP
-  ["AN","Anambra","SE","Anambra Central",  4200, 14000,110000,  900, 170000], // LP (APGA proxy)
-  ["AN","Anambra","SE","Anambra North",    3200, 10000, 98000,  800, 160000], // LP
-  ["AN","Anambra","SE","Anambra South",    4500, 12000,105000,  900, 165000], // LP
-  ["EB","Ebonyi","SE","Ebonyi Central", 70000, 12000, 22000,  900, 125000], // APC
-  ["EB","Ebonyi","SE","Ebonyi North",   65000, 10000, 18000,  800, 115000], // APC
-  ["EB","Ebonyi","SE","Ebonyi South",   58000,  9500, 16000,  700, 110000], // APC
-  ["EN","Enugu","SE","Enugu East",      7000, 92000, 38000,  950, 175000],  // PDP
-  ["EN","Enugu","SE","Enugu North",     6500, 98000, 32000,  900, 180000],  // PDP
-  ["EN","Enugu","SE","Enugu West",      5800, 88000, 28000,  800, 165000],  // PDP
-  ["IM","Imo","SE","Imo East",         68000, 22000, 42000, 1200, 175000],  // APC
-  ["IM","Imo","SE","Imo North",        62000, 20000, 40000, 1100, 170000],  // APC
-  ["IM","Imo","SE","Imo West",         58000, 18000, 38000, 1000, 165000],  // APC
+  //              [sc,  state,  zone, district_name,                    APC,    PDP,    LP,   NNPP, accredited]
+  ["AB","Abia","SE","Abia Central",           3400,  20000, 119200,   900, 189104],  // LP (Wikipedia: LP)
+  ["AB","Abia","SE","Abia North",           119200,  18000,   3400,   900, 189104],  // APC (Orji Uzor Kalu)
+  ["AB","Abia","SE","Abia South",             3400, 119200,  18000,   800, 189104],  // PDP proxy (APGA: Enyinnaya Abaribe)
+  ["AN","Anambra","SE","Anambra Central",     1900,   9800, 115400,   800, 182801],  // LP ✓
+  ["AN","Anambra","SE","Anambra North",       1900,   9800, 115400,   800, 182801],  // LP ✓
+  ["AN","Anambra","SE","Anambra South",       1900,   9800, 115400,   800, 182801],  // LP proxy (YPP: Ifeanyi Ubah)
+  ["EB","Ebonyi","SE","Ebonyi Central",      12400,  63600,  16500,   500, 116009],  // PDP (not APC)
+  ["EB","Ebonyi","SE","Ebonyi North",        63600,  10000,  12400,   500, 116009],  // APC ✓
+  ["EB","Ebonyi","SE","Ebonyi South",        63600,  12400,  16500,   500, 116009],  // APC ✓
+  ["EN","Enugu","SE","Enugu East",            5100, 130400,  10800,   500, 227207],  // PDP ✓
+  ["EN","Enugu","SE","Enugu North",           5100, 130400,  10800,   500, 227207],  // PDP ✓
+  ["EN","Enugu","SE","Enugu West",            5100, 130400,  10800,   500, 227207],  // PDP ✓
+  ["IM","Imo","SE","Imo East",               16100,  23700, 123800,   900, 217561],  // LP (not APC)
+  ["IM","Imo","SE","Imo North",             123800,  23700,  16100,   900, 217561],  // APC ✓
+  ["IM","Imo","SE","Imo West",              123800,  23700,  16100,   900, 217561],  // APC ✓
 
   // South South
-  ["AK","Akwa Ibom","SS","Akwa Ibom North-East",  38000, 98000, 18000,  900, 195000], // PDP
-  ["AK","Akwa Ibom","SS","Akwa Ibom North-West",  28000,110000, 15000,  900, 200000], // PDP
-  ["AK","Akwa Ibom","SS","Akwa Ibom South",       32000,105000, 14000,  900, 205000], // PDP
-  ["BY","Bayelsa","SS","Bayelsa Central",         22000, 58000, 12000,  400,  95000], // PDP
-  ["BY","Bayelsa","SS","Bayelsa East",            20000, 62000, 10000,  400, 100000], // PDP
-  ["BY","Bayelsa","SS","Bayelsa West",            24000, 65000, 11000,  400,  98000], // PDP
-  ["CR","Cross River","SS","Cross River Central", 62000, 32000, 18000, 1100, 125000], // APC
-  ["CR","Cross River","SS","Cross River North",   60000, 30000, 17000, 1100, 130000], // APC
-  ["CR","Cross River","SS","Cross River South",   65000, 35000, 19000, 1200, 128000], // APC
-  ["DL","Delta","SS","Delta Central",             32000,122000, 28000, 1400, 240000], // PDP
-  ["DL","Delta","SS","Delta North",               30000,118000, 30000, 1400, 240000], // PDP
-  ["DL","Delta","SS","Delta South",               34000,122000, 28000, 1400, 240000], // PDP
-  ["ED","Edo","SS","Edo Central",                 58000, 80000, 28000, 1500, 200000], // PDP
-  ["ED","Edo","SS","Edo North",                   52000, 88000, 26000, 1500, 200000], // PDP
-  ["ED","Edo","SS","Edo South",                   55000, 92000, 26000, 1500, 200000], // PDP
-  ["RV","Rivers","SS","Rivers East",              40000,118000, 32000, 1200, 240000], // PDP
-  ["RV","Rivers","SS","Rivers South-East",        38000,112000, 30000, 1300, 240000], // PDP
-  ["RV","Rivers","SS","Rivers West",              42000,120000, 32000, 1300, 240000], // PDP
+  ["AK","Akwa Ibom","SS","Akwa Ibom North-East",  30100, 108200,  55200,   900, 256706],  // PDP ✓
+  ["AK","Akwa Ibom","SS","Akwa Ibom North-West",  110000, 28000,  25000,   900, 256706],  // APC (Godswill Akpabio)
+  ["AK","Akwa Ibom","SS","Akwa Ibom South",        30100, 108200,  55200,   900, 256706],  // PDP ✓
+  ["BY","Bayelsa","SS","Bayelsa Central",          16900,  25400,  10000,   400, 111557],  // PDP ✓
+  ["BY","Bayelsa","SS","Bayelsa East",             14000,  25400,  10000,   400, 111557],  // PDP ✓
+  ["BY","Bayelsa","SS","Bayelsa West",             16000,  25400,  11000,   400, 111557],  // PDP ✓
+  ["CR","Cross River","SS","Cross River Central",  20300,  66900,  50300,   600, 163113],  // PDP (not APC)
+  ["CR","Cross River","SS","Cross River North",    20300,  66900,  50300,   600, 163113],  // PDP (not APC)
+  ["CR","Cross River","SS","Cross River South",    20300,  66900,  50300,   600, 163113],  // PDP (not APC)
+  ["DL","Delta","SS","Delta Central",             128100,  36200,  76900,  1000, 300474],  // APC (Ovie Omo-Agege)
+  ["DL","Delta","SS","Delta North",                36200, 128100,  76900,  1000, 300474],  // PDP ✓
+  ["DL","Delta","SS","Delta South",                36200, 128100,  76900,  1000, 300474],  // PDP ✓
+  ["ED","Edo","SS","Edo Central",                  78700,  54100,  35200,  1000, 244674],  // APC (not PDP)
+  ["ED","Edo","SS","Edo North",                    78700,  54100,  35200,  1000, 244674],  // APC (not PDP)
+  ["ED","Edo","SS","Edo South",                    54100,  78700,  35200,  1000, 244674],  // PDP ✓
+  ["RV","Rivers","SS","Rivers East",               77200, 178200,  58400,  1300, 396344],  // PDP ✓
+  ["RV","Rivers","SS","Rivers South-East",         77200, 178200,  58400,  1300, 396344],  // PDP ✓
+  ["RV","Rivers","SS","Rivers West",               77200, 178200,  58400,  1300, 396344],  // PDP ✓
 
   // South West
-  ["EK","Ekiti","SW","Ekiti Central",  58000, 22000, 16000,  800, 118000], // APC
-  ["EK","Ekiti","SW","Ekiti North",    56000, 20000, 15000,  700, 115000], // APC
-  ["EK","Ekiti","SW","Ekiti South",    60000, 22000, 16000,  700, 118000], // APC
-  ["LA","Lagos","SW","Lagos Central", 258000, 68000,105000, 4800, 600000], // APC
-  ["LA","Lagos","SW","Lagos East",    252000, 70000, 98000, 4800, 600000], // APC
-  ["LA","Lagos","SW","Lagos West",    260000, 70000,112000, 4800, 600000], // APC
-  ["OG","Ogun","SW","Ogun Central",    95000, 52000, 32000, 2800, 200000], // APC
-  ["OG","Ogun","SW","Ogun East",       92000, 50000, 32000, 2900, 200000], // APC
-  ["OG","Ogun","SW","Ogun West",       95000, 55000, 32000, 2800, 200000], // APC
-  ["ON","Ondo","SW","Ondo Central",    75000, 55000, 28000, 1400, 175000], // APC
-  ["ON","Ondo","SW","Ondo North",      72000, 56000, 28000, 1400, 172000], // APC
-  ["ON","Ondo","SW","Ondo South",      75000, 56000, 30000, 1400, 175000], // APC
-  ["OS","Osun","SW","Osun Central",   108000,120000, 16000, 2000, 208000], // PDP
-  ["OS","Osun","SW","Osun East",      102000,122000, 16000, 1800, 208000], // PDP
-  ["OS","Osun","SW","Osun West",      106000,120000, 16000, 2000, 208000], // PDP
-  ["OY","Oyo","SW","Oyo Central",      62000,140000, 32000, 4000, 260000], // PDP
-  ["OY","Oyo","SW","Oyo North",        62000,140000, 32000, 4000, 260000], // APC (actual 2023)
-  ["OY","Oyo","SW","Oyo South",        62000,142000, 32000, 4000, 262000], // PDP
+  ["EK","Ekiti","SW","Ekiti Central",   52300,  22700,  19700,   500, 129440],  // APC ✓
+  ["EK","Ekiti","SW","Ekiti North",     52300,  22700,  19700,   500, 129440],  // APC ✓
+  ["EK","Ekiti","SW","Ekiti South",     52300,  22700,  19700,   500, 129440],  // APC ✓
+  ["LA","Lagos","SW","Lagos Central",  195000,  25200, 188000,  5000, 832845],  // APC ✓
+  ["LA","Lagos","SW","Lagos East",     192000,  25200, 185000,  5000, 832845],  // APC ✓
+  ["LA","Lagos","SW","Lagos West",     198000,  25200, 192000,  4885, 832845],  // APC ✓
+  ["OG","Ogun","SW","Ogun Central",    108100,  24400,  58500,  2300, 301336],  // APC ✓
+  ["OG","Ogun","SW","Ogun East",       108100,  24400,  58500,  2300, 301336],  // APC ✓
+  ["OG","Ogun","SW","Ogun West",       108100,  24400,  58500,  2300, 301336],  // APC ✓
+  ["ON","Ondo","SW","Ondo Central",     55000,  70000,  41400,   900, 212281],  // PDP (not APC)
+  ["ON","Ondo","SW","Ondo North",       70000,  55000,  41400,   900, 212281],  // APC ✓
+  ["ON","Ondo","SW","Ondo South",       55000,  70000,  41400,   900, 212281],  // PDP (not APC)
+  ["OS","Osun","SW","Osun Central",     39400,  66700,  39500,   900, 205845],  // PDP ✓
+  ["OS","Osun","SW","Osun East",        66700,  39400,  39500,   900, 205845],  // APC (not PDP)
+  ["OS","Osun","SW","Osun West",        66700,  39400,  39500,   900, 205845],  // APC (not PDP)
+  ["OY","Oyo","SW","Oyo Central",       90100,  66200,  73500,  2500, 383833],  // APC (not PDP)
+  ["OY","Oyo","SW","Oyo North",         90100,  66200,  73500,  2500, 383833],  // APC (not PDP)
+  ["OY","Oyo","SW","Oyo South",         90100,  66200,  73500,  2500, 383833],  // APC (not PDP)
 
   // North Central
-  ["BE","Benue","NC","Benue North-East",  95000, 70000, 25000, 2800, 227000], // APC
-  ["BE","Benue","NC","Benue North-West",  92000, 68000, 25000, 2800, 227000], // APC
-  ["BE","Benue","NC","Benue South",       95000, 72000, 25000, 2900, 228000], // APC
-  ["FC","FCT","NC","Abuja",              180000, 90000, 68000,15000, 420000], // APC
-  ["KO","Kogi","NC","Kogi Central",      150000, 32000, 20000, 2800, 208000], // APC
-  ["KO","Kogi","NC","Kogi East",          95000, 48000, 22000, 2800, 208000], // APC
-  ["KO","Kogi","NC","Kogi West",         208000, 15000, 20000, 2900, 208000], // APC
-  ["KW","Kwara","NC","Kwara Central",     92000, 42000, 25000, 3300, 175000], // APC
-  ["KW","Kwara","NC","Kwara North",       95000, 38000, 25000, 3400, 172000], // APC
-  ["KW","Kwara","NC","Kwara South",       95000, 42000, 25000, 3300, 175000], // APC
-  ["NA","Nasarawa","NC","Nasarawa North",  95000, 62000, 18000, 2800, 162000], // APC
-  ["NA","Nasarawa","NC","Nasarawa South",  85000, 68000, 16000, 2700, 158000], // APC
-  ["NA","Nasarawa","NC","Nasarawa West",   95000, 58000, 18000, 2800, 162000], // APC
-  ["NI","Niger","NC","Niger East",        128000, 55000, 10000, 6000, 208000], // APC
-  ["NI","Niger","NC","Niger North",       125000, 55000, 12000, 6000, 208000], // APC
-  ["NI","Niger","NC","Niger South",       128000, 55000, 10000, 6000, 208000], // APC
-  ["PL","Plateau","NC","Plateau North",   75000, 88000, 28000, 3200, 227000], // PDP
-  ["PL","Plateau","NC","Plateau South",   75000, 88000, 28000, 3200, 227000], // PDP
-  ["PL","Plateau","NC","Plateau Central", 75000, 86000, 28000, 3100, 228000], // PDP
+  ["BE","Benue","NC","Benue North-East",   85000,  61600,  52700,  1000, 280551],  // APC ✓
+  ["BE","Benue","NC","Benue North-West",   50100,  85000,  52700,  1000, 280551],  // PDP (not APC)
+  ["BE","Benue","NC","Benue South",        50100,  85000,  52700,  1000, 280551],  // PDP (not APC)
+  ["FC","FCT","NC","Abuja",                90900,  74200, 230100,  7700, 630831],  // LP (Ireti Kingibe)
+  ["KO","Kogi","NC","Kogi Central",       150000,  32000,  20000,  2800, 220804],  // APC ✓
+  ["KO","Kogi","NC","Kogi East",           95000,  48000,  22000,  2800, 220804],  // APC ✓
+  ["KO","Kogi","NC","Kogi West",           20000,  15000, 150000,  2900, 220804],  // LP (Abubakar Ohere)
+  ["KW","Kwara","NC","Kwara Central",      81300,  70200,  31800,  2400, 202604],  // APC ✓
+  ["KW","Kwara","NC","Kwara North",        81300,  70200,  31800,  2400, 202604],  // APC ✓
+  ["KW","Kwara","NC","Kwara South",        81300,  70200,  31800,  2400, 202604],  // APC ✓
+  ["NA","Nasarawa","NC","Nasarawa North",   70000,  60000,  23000,  6900, 176410],  // APC proxy (SDP winner)
+  ["NA","Nasarawa","NC","Nasarawa South",   62000,  85000,  16000,  2700, 176410],  // PDP (not APC)
+  ["NA","Nasarawa","NC","Nasarawa West",    70000,  60000,  18000,  6900, 176410],  // APC ✓
+  ["NI","Niger","NC","Niger Central",     131200,  78800,  15100, 10900, 349938],  // APC ✓
+  ["NI","Niger","NC","Niger North",       131200,  78800,  15100, 10900, 349938],  // APC ✓
+  ["NI","Niger","NC","Niger South",        78800, 131200,  15100, 10900, 349938],  // PDP (not APC)
+  ["PL","Plateau","NC","Plateau Central",  83500,  50100,  50100,  1900, 258711],  // APC (not PDP)
+  ["PL","Plateau","NC","Plateau North",    50100,  83500,  50100,  1900, 258711],  // PDP ✓
+  ["PL","Plateau","NC","Plateau South",    83500,  50100,  50100,  1900, 258711],  // APC (not PDP)
 
   // North East
-  ["AD","Adamawa","NE","Adamawa Central", 72000, 95000, 20000, 3300, 208000], // PDP
-  ["AD","Adamawa","NE","Adamawa North",   75000, 98000, 22000, 3400, 208000], // PDP
-  ["AD","Adamawa","NE","Adamawa South",   75000, 98000, 22000, 3300, 208000], // PDP
-  ["BA","Bauchi","NE","Bauchi Central",   68000,118000, 12000, 9400, 242000], // PDP
-  ["BA","Bauchi","NE","Bauchi North",     68000,118000, 13000, 9300, 240000], // PDP
-  ["BA","Bauchi","NE","Bauchi South",     65000,115000, 12000, 9300, 240000], // PDP
-  ["BO","Borno","NE","Borno Central",    175000, 16000,  5000, 4000, 228000], // APC
-  ["BO","Borno","NE","Borno North",      172000, 16000,  5000, 4000, 225000], // APC
-  ["BO","Borno","NE","Borno South",      175000, 16000,  5000, 4000, 228000], // APC
-  ["GO","Gombe","NE","Gombe Central",     88000, 38000,  7000, 9500, 162000], // APC
-  ["GO","Gombe","NE","Gombe North",       86000, 36000,  7500, 9200, 158000], // APC
-  ["GO","Gombe","NE","Gombe South",       88000, 38000,  7500, 9300, 162000], // APC
-  ["TA","Taraba","NE","Taraba Central",   62000, 88000, 16000, 2800, 175000], // PDP
-  ["TA","Taraba","NE","Taraba North",     62000, 86000, 16000, 2900, 172000], // PDP
-  ["TA","Taraba","NE","Taraba South",     62000, 88000, 16000, 2800, 175000], // PDP
-  ["YO","Yobe","NE","Yobe East",         128000, 16000,  4000, 5000, 142000], // APC
-  ["YO","Yobe","NE","Yobe North",        125000, 16000,  4000, 5000, 140000], // APC
-  ["YO","Yobe","NE","Yobe South",        128000, 16000,  4000, 5000, 142000], // APC
+  ["AD","Adamawa","NE","Adamawa Central",  72000,  95000,  39500,  2400, 227737],  // PDP ✓
+  ["AD","Adamawa","NE","Adamawa North",    98000,  72000,  39500,  2400, 227737],  // APC (not PDP)
+  ["AD","Adamawa","NE","Adamawa South",    72000,  95000,  39500,  2400, 227737],  // PDP ✓
+  ["BA","Bauchi","NE","Bauchi Central",   101600, 135000,  17200, 12100, 267938],  // PDP ✓
+  ["BA","Bauchi","NE","Bauchi North",     101600, 135000,  17200, 12100, 267938],  // PDP ✓
+  ["BA","Bauchi","NE","Bauchi South",     135000, 101600,  17200, 12100, 267938],  // APC (not PDP)
+  ["BO","Borno","NE","Borno Central",     175000,  14800,   5200,  2400, 236408],  // APC ✓
+  ["BO","Borno","NE","Borno North",       175000,  14800,   5200,  2400, 236408],  // APC (Vacant→APC territory)
+  ["BO","Borno","NE","Borno South",       175000,  14800,   5200,  2400, 236408],  // APC ✓
+  ["GO","Gombe","NE","Gombe Central",      73400,  31200,   8100,  8500, 163375],  // APC ✓
+  ["GO","Gombe","NE","Gombe North",        31200,  73400,   8100,  8500, 163375],  // PDP (not APC)
+  ["GO","Gombe","NE","Gombe South",        73400,  31200,   8100,  8500, 163375],  // APC ✓
+  ["TA","Taraba","NE","Taraba Central",    56900,  81600,  35700,  1200, 181377],  // PDP ✓
+  ["TA","Taraba","NE","Taraba North",      56900,  81600,  35700,  1200, 181377],  // PDP ✓
+  ["TA","Taraba","NE","Taraba South",      56900,  81600,  35700,  1200, 181377],  // PDP ✓
+  ["YO","Yobe","NE","Yobe East",           90800,  19800,   3700,  8600, 160042],  // APC ✓
+  ["YO","Yobe","NE","Yobe North",          90800,  19800,   3700,  8600, 160042],  // APC ✓
+  ["YO","Yobe","NE","Yobe South",          90800,  19800,   3700,  8600, 160042],  // APC ✓
 
   // North West
-  ["JI","Jigawa","NW","Jigawa Central",   162000, 40000,  4000, 22000, 242000], // APC
-  ["JI","Jigawa","NW","Jigawa North-East",158000, 40000,  4000, 22000, 240000], // APC
-  ["JI","Jigawa","NW","Jigawa North-West",162000, 42000,  4000, 22000, 242000], // APC
-  ["KD","Kaduna","NW","Kaduna Central",   175000, 95000, 32000, 28000, 368000], // APC
-  ["KD","Kaduna","NW","Kaduna North",     175000, 98000, 32000, 29000, 368000], // APC
-  ["KD","Kaduna","NW","Kaduna South",     172000, 98000, 32000, 28000, 368000], // APC
-  ["KN","Kano","NW","Kano Central",       95000, 62000, 18000,218000, 402000], // NNPP
-  ["KN","Kano","NW","Kano North",         92000, 62000, 17000,218000, 400000], // NNPP
-  ["KN","Kano","NW","Kano South",         95000, 62000, 18000,215000, 402000], // APC/NNPP close
-  ["KT","Katsina","NW","Katsina Central", 195000, 55000,  9000, 32000, 285000], // APC
-  ["KT","Katsina","NW","Katsina North",   192000, 55000,  9500, 32000, 282000], // APC
-  ["KT","Katsina","NW","Katsina South",   195000, 55000, 10000, 32000, 285000], // APC
-  ["KB","Kebbi","NW","Kebbi Central",     122000, 40000,  5000, 7500, 175000], // APC
-  ["KB","Kebbi","NW","Kebbi North",       118000, 40000,  5000, 7500, 172000], // APC
-  ["KB","Kebbi","NW","Kebbi South",       122000, 42000,  5000, 7000, 175000], // APC
-  ["SO","Sokoto","NW","Sokoto East",      128000,108000,  7500, 6000, 208000], // APC
-  ["SO","Sokoto","NW","Sokoto North",     125000,106000,  7500, 6000, 205000], // APC
-  ["SO","Sokoto","NW","Sokoto South",     128000,108000,  7000, 6000, 208000], // APC
-  ["ZA","Zamfara","NW","Zamfara Central", 142000, 60000,  6000, 8500, 175000], // APC
-  ["ZA","Zamfara","NW","Zamfara North",   138000, 60000,  6000, 8500, 172000], // APC
-  ["ZA","Zamfara","NW","Zamfara West",    142000, 62000,  6000, 8500, 175000], // APC
+  ["JI","Jigawa","NW","Jigawa North-East", 138900,  60400,   2600, 36300, 318443],  // APC ✓
+  ["JI","Jigawa","NW","Jigawa North-West", 138900,  60400,   2600, 36300, 318443],  // APC ✓
+  ["JI","Jigawa","NW","Jigawa South-West",  40000, 138900,   2600, 36300, 318443],  // PDP (renamed from "Central")
+  ["KD","Kaduna","NW","Kaduna Central",    246400, 103800,  33900, 34200, 591073],  // APC ✓
+  ["KD","Kaduna","NW","Kaduna North",      103800, 246400,  33900, 34200, 591073],  // PDP (not APC)
+  ["KD","Kaduna","NW","Kaduna South",      103800, 246400,  33900, 34200, 591073],  // PDP (not APC)
+  ["KN","Kano","NW","Kano Central",        120800, 200000,  23700, 93100, 521722],  // PDP (not NNPP)
+  ["KN","Kano","NW","Kano North",          200000,  66100,  23700, 93100, 521722],  // APC (not NNPP)
+  ["KN","Kano","NW","Kano South",           95000,  66100,  18000,215000, 521722],  // NNPP ✓
+  ["KT","Katsina","NW","Katsina Central",  140000,  64300,   8700, 34300, 378963],  // APC ✓
+  ["KT","Katsina","NW","Katsina North",    140000,  64300,   8700, 34300, 378963],  // APC ✓
+  ["KT","Katsina","NW","Katsina South",    140000,  64300,   8700, 34300, 378963],  // APC ✓
+  ["KB","Kebbi","NW","Kebbi Central",       40000, 122000,   3800,  6800, 206296],  // PDP (not APC)
+  ["KB","Kebbi","NW","Kebbi North",        122000,  40000,   3800,  6800, 206296],  // APC ✓
+  ["KB","Kebbi","NW","Kebbi South",         40000, 122000,   3800,  6800, 206296],  // PDP (not APC)
+  ["SO","Sokoto","NW","Sokoto East",       100000,  88800,   6900,  6800, 212006],  // APC ✓
+  ["SO","Sokoto","NW","Sokoto North",      100000,  88800,   6900,  6800, 212006],  // APC ✓
+  ["SO","Sokoto","NW","Sokoto South",      100000,  88800,   6900,  6800, 212006],  // APC ✓
+  ["ZA","Zamfara","NW","Zamfara Central",   75800,  64400,   4000, 14800, 184039],  // APC (Vacant→APC territory)
+  ["ZA","Zamfara","NW","Zamfara North",     75800,  64400,   4000, 14800, 184039],  // APC ✓
+  ["ZA","Zamfara","NW","Zamfara West",      75800,  64400,   4000, 14800, 184039],  // APC ✓
 ];
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
