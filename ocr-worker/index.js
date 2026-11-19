@@ -25,6 +25,7 @@ const OPENROUTER_API_KEY       = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL         = process.env.OPENROUTER_MODEL ?? "anthropic/claude-haiku-4-5";
 const CONCURRENCY              = parseInt(process.env.WORKER_CONCURRENCY ?? "8", 10);
 const POLL_INTERVAL_MS         = parseInt(process.env.POLL_INTERVAL_MS ?? "3000", 10);
+const IREV_POLL_MS             = parseInt(process.env.IREV_POLL_INTERVAL_MS ?? "300000", 10); // 5 min default; 0 = disable
 const MAX_RETRIES              = 3;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !OPENROUTER_API_KEY) {
@@ -378,17 +379,6 @@ function irevImageUrl(pu) {
 }
 
 async function scrapeIrevElection(election) {
-  // Check if already scraped — skip if any queue entries exist for this election
-  const { count } = await supabase
-    .from("ocr_queue")
-    .select("*", { count: "exact", head: true })
-    .eq("election_id", election.key);
-
-  if (count > 0) {
-    console.log(`[IREV] ${election.label}: already has ${count} queue entries — skipping`);
-    return;
-  }
-
   console.log(`[IREV] Scraping ${election.label}...`);
 
   let lgas;
@@ -438,9 +428,11 @@ async function scrapeIrevElection(election) {
       }
 
       if (rows.length > 0) {
-        const { error } = await supabase.from("ocr_queue").insert(rows);
+        const { error } = await supabase
+          .from("ocr_queue")
+          .upsert(rows, { onConflict: "image_url", ignoreDuplicates: true });
         if (error) {
-          console.error(`[IREV] Insert error (${lgaName}/${wardName}):`, error.message);
+          console.error(`[IREV] Upsert error (${lgaName}/${wardName}):`, error.message);
         } else {
           totalQueued += rows.length;
         }
@@ -495,7 +487,7 @@ async function main() {
   console.log(`  Model:       ${OPENROUTER_MODEL}`);
   console.log(`  Concurrency: ${CONCURRENCY}`);
   console.log(`  Poll every:  ${POLL_INTERVAL_MS}ms`);
-  console.log("  Data source: INEC IREV result sheets via OCR only");
+  console.log(`  IREV polling: ${IREV_POLL_MS > 0 ? `every ${IREV_POLL_MS / 1000}s` : "startup only"}`);
 
   // Reset jobs stuck in "processing" from a previous crashed worker
   const { count } = await supabase
@@ -508,6 +500,12 @@ async function main() {
 
   // Auto-populate queue from INEC IREV for all 4 elections
   await scrapeAllIrev();
+
+  // During live elections: re-scrape periodically to catch new uploads
+  if (IREV_POLL_MS > 0) {
+    console.log(`  IREV re-scrape: every ${IREV_POLL_MS / 1000}s`);
+    setInterval(scrapeAllIrev, IREV_POLL_MS);
+  }
 
   while (true) {
     await poll();
