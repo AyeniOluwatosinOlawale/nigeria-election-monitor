@@ -463,6 +463,15 @@ const CONSTITUENCIES = [
   ["ZA","Zamfara","NW","Kaura Namoda/Talata Mafara/Zurmi",13500,4500,650,1900, 22000],
 ];
 
+// Real PU counts per state from INEC IREV API (presidential 2023, 176,846 total)
+const STATE_PUS = {
+  AB:4062, AD:4104, AK:4353, AN:5720, BA:5423, BY:2244, BE:5102, BO:5071,
+  CR:3281, DL:5863, EB:2946, ED:4519, EK:2445, EN:4145, FC:2822, GO:2988,
+  IM:4758, JI:4522, KD:8012, KN:11222, KT:6652, KB:3743, KO:3508, KW:2887,
+  LA:13325, NA:3256, NI:4950, OG:5042, ON:3933, OS:3763, OY:6390, PL:4989,
+  RV:6866, SO:3991, TA:3597, YO:2823, ZA:3529,
+};
+
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function run() {
@@ -508,6 +517,9 @@ async function run() {
     for (const w of winners) seatsByParty[w]++;
     totalSeats += numSeats;
 
+    const stateTotalPUs = STATE_PUS[sc] ?? numSeats * 15;
+    const constPUs = Math.round(stateTotalPUs / numSeats);
+
     // Insert state rows
     const stateRows = PARTIES.map(p => ({
       election_id: ELECTION_ID,
@@ -517,8 +529,8 @@ async function run() {
       party_code: p,
       votes: stateTotals[p],
       accredited_voters: stateAccredited,
-      total_pus: numSeats * 15,
-      reported_pus: numSeats * 15,
+      total_pus: stateTotalPUs,
+      reported_pus: stateTotalPUs,
       status: "declared",
       over_voted: false,
     }));
@@ -537,8 +549,8 @@ async function run() {
           party_code: p,
           votes: p === "APC" ? apc : p === "PDP" ? pdp : p === "LP" ? lp : nnpp,
           accredited_voters: acc,
-          total_pus: 15,
-          reported_pus: 15,
+          total_pus: constPUs,
+          reported_pus: constPUs,
           status: "declared",
           over_voted: totalVotes > acc && acc > 0,
         });
