@@ -83,6 +83,12 @@ Rules:
 // ─── OpenRouter call ─────────────────────────────────────────────────────────
 
 async function callOpenRouter(base64, mediaType) {
+  // PDFs use the document content block; images use image_url
+  const isPdf = mediaType === "application/pdf";
+  const contentBlock = isPdf
+    ? { type: "text", text: `data:application/pdf;base64,${base64}` }
+    : { type: "image_url", image_url: { url: `data:${mediaType};base64,${base64}` } };
+
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -99,10 +105,7 @@ async function callOpenRouter(base64, mediaType) {
         {
           role: "user",
           content: [
-            {
-              type: "image_url",
-              image_url: { url: `data:${mediaType};base64,${base64}` },
-            },
+            contentBlock,
             {
               type: "text",
               text: "Extract all election result data from this INEC result sheet. Return only valid JSON.",
@@ -226,23 +229,42 @@ async function writeResultsToSupabase(job, result, overVoted) {
 
 // ─── Core job processor ───────────────────────────────────────────────────────
 
+async function fetchImageAsBase64(job) {
+  if (job.image_url) {
+    // Direct S3 URL from INEC IREV
+    const response = await fetch(job.image_url);
+    if (!response.ok) throw new Error(`IREV image fetch failed: ${response.status} ${job.image_url}`);
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    const contentType = response.headers.get("content-type") ?? "image/jpeg";
+    let mediaType = contentType.split(";")[0].trim();
+    // Some servers return octet-stream for PDFs — detect by URL extension
+    if (mediaType === "application/octet-stream" && job.image_url?.endsWith(".pdf")) {
+      mediaType = "application/pdf";
+    }
+    return { base64, mediaType };
+  }
+
+  // Supabase Storage fallback
+  const { data: fileData, error: downloadError } = await supabase.storage
+    .from("result-sheets")
+    .download(job.storage_path);
+  if (downloadError) throw new Error(`Storage download failed: ${downloadError.message}`);
+  const arrayBuffer = await fileData.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+  const ext = job.storage_path.split(".").pop()?.toLowerCase() ?? "jpeg";
+  const mediaTypeMap = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif", pdf: "application/pdf" };
+  const mediaType = mediaTypeMap[ext] ?? "image/jpeg";
+  return { base64, mediaType };
+}
+
 async function processJob(job) {
-  console.log(`[${job.id}] Processing: ${job.file_name ?? job.storage_path}`);
+  const label = job.file_name ?? job.pu_code ?? job.image_url ?? job.storage_path;
+  console.log(`[${job.id}] Processing: ${label}`);
 
   try {
-    // 1. Download image from Supabase Storage
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from("result-sheets")
-      .download(job.storage_path);
-
-    if (downloadError) throw new Error(`Storage download failed: ${downloadError.message}`);
-
-    const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-
-    const ext = job.storage_path.split(".").pop()?.toLowerCase() ?? "jpeg";
-    const mediaTypeMap = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" };
-    const mediaType = mediaTypeMap[ext] ?? "image/jpeg";
+    // 1. Download image (from IREV S3 or Supabase Storage)
+    const { base64, mediaType } = await fetchImageAsBase64(job);
 
     // 2. Call Claude via OpenRouter
     const rawText = await callOpenRouter(base64, mediaType);
