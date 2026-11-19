@@ -15,8 +15,8 @@
  * upsert_ocr_pu_result functions required for atomic vote accumulation.
  */
 
-const { createClient } = require("@supabase/supabase-js");
 global.WebSocket = require("ws");
+const { createClient } = require("@supabase/supabase-js");
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
