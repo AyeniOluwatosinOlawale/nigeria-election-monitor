@@ -16,6 +16,7 @@
  */
 
 const { createClient } = require("@supabase/supabase-js");
+global.WebSocket = require("ws");
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
