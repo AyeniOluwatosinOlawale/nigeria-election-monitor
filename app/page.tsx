@@ -378,6 +378,8 @@ export default function ElectionDashboard() {
   const [overVotedResults, setOverVotedResults] = useState<OverVotedRecord[]>([]);
   const [puResultsCache, setPuResultsCache] = useState<Record<string, PUResult[]>>({});
   const [puSearchQuery, setPuSearchQuery] = useState("");
+  const [geoLgaCache, setGeoLgaCache] = useState<Record<string, AggregateResult[]>>({});
+  const [expandedDistrict, setExpandedDistrict] = useState<string | null>(null);
 
   // Result state — null until loaded
   const [presidentialResults, setPresidentialResults] = useState<ElectionResult | null>(null);
@@ -502,6 +504,7 @@ export default function ElectionDashboard() {
   // ── Load LGA results when a state is selected ────────────────────────────
   useEffect(() => {
     setSelectedLGA(null);
+    setExpandedDistrict(null);
     if (!selectedState) return;
     const cacheKey = `${activeTab}_${activeYear}_${selectedState}`;
     if (lgaResultsCache[cacheKey]) return;
@@ -510,12 +513,26 @@ export default function ElectionDashboard() {
     });
   }, [selectedState, activeTab, activeYear]);
 
+  // ── Load geographic LGAs from gubernatorial when in senate/house mode ─────
+  useEffect(() => {
+    if (!selectedState) return;
+    if (activeTab !== "senate" && activeTab !== "house_reps") return;
+    if (geoLgaCache[selectedState]) return;
+    fetchLGAResults(`gubernatorial_${activeYear}`, selectedState).then((results) => {
+      setGeoLgaCache((prev) => ({ ...prev, [selectedState]: results }));
+    });
+  }, [selectedState, activeTab, activeYear]);
+
   // ── Load PU results when an LGA is selected ───────────────────────────────
+  // PU data only exists for presidential; use it as fallback for senate/house drilldown.
   useEffect(() => {
     if (!selectedLGA || !selectedState) return;
-    const cacheKey = `${activeTab}_${activeYear}_${selectedState}_${selectedLGA}`;
+    const puElectionId = (activeTab === "senate" || activeTab === "house_reps")
+      ? `presidential_${activeYear}`
+      : `${activeTab}_${activeYear}`;
+    const cacheKey = `${puElectionId}_${selectedState}_${selectedLGA}`;
     if (puResultsCache[cacheKey]) return;
-    fetchPUResults(`${activeTab}_${activeYear}`, selectedState, selectedLGA).then((results) => {
+    fetchPUResults(puElectionId, selectedState, selectedLGA).then((results) => {
       setPuResultsCache((prev) => ({ ...prev, [cacheKey]: results }));
     });
   }, [selectedLGA, selectedState, activeTab, activeYear]);
@@ -571,7 +588,10 @@ export default function ElectionDashboard() {
     if (!stateResult || !stateInfo) return null;
     const lgaCacheKey = `${activeTab}_${activeYear}_${selectedState}`;
     const lgaResults = lgaResultsCache[lgaCacheKey] ?? [];
-    const puCacheKey = selectedLGA ? `${activeTab}_${activeYear}_${selectedState}_${selectedLGA}` : null;
+    const puElectionId = (activeTab === "senate" || activeTab === "house_reps")
+      ? `presidential_${activeYear}`
+      : `${activeTab}_${activeYear}`;
+    const puCacheKey = selectedLGA ? `${puElectionId}_${selectedState}_${selectedLGA}` : null;
     const puResults = puCacheKey ? (puResultsCache[puCacheKey] ?? []) : [];
     return { stateResult, stateInfo, lgaResults, puResults };
   }, [selectedState, selectedLGA, activeResults, lgaResultsCache, puResultsCache, activeTab, activeYear]);
@@ -683,7 +703,7 @@ export default function ElectionDashboard() {
           {/* Right: banner */}
           {activeYear === 2023 ? (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-medium">
-              <span>⚠</span> Testing Mode — 2023 INEC Official Results
+              <span>⚠</span> 2023 OCR Testing Mode — Upload IREV sheets to populate
             </div>
           ) : (
             <div className="flex items-center gap-2 bg-green-50 border border-nigeria-green/30 text-nigeria-green px-3 py-1.5 rounded-lg text-xs font-bold">
@@ -701,7 +721,7 @@ export default function ElectionDashboard() {
       {usingDemoData && (
         <div className="bg-amber-50 border-b border-amber-200">
           <div className="max-w-screen-2xl mx-auto px-4 py-2 text-xs text-amber-700 font-medium">
-            No results in the database yet for {activeYear}. Data will appear automatically when INEC begins collation.
+            No results yet — results will appear here as INEC result sheets are uploaded and processed via OCR collation.
           </div>
         </div>
       )}
@@ -798,7 +818,7 @@ export default function ElectionDashboard() {
                   <div className="py-12 text-center text-gray-400">
                     <div className="text-4xl mb-3">🗳️</div>
                     <p className="text-sm font-semibold text-gray-500">No results yet.</p>
-                    <p className="text-xs mt-1">Data loads as INEC begins collation.</p>
+                    <p className="text-xs mt-1">Results appear as INEC result sheets are processed via OCR.</p>
                   </div>
                 ) : (
                   sortedParties.map(({ party, votes, pct, statesLed }, idx) => (
@@ -897,9 +917,14 @@ export default function ElectionDashboard() {
           );
 
           const lgaResults = selectedStateData.lgaResults;
-          const senateLGAGroups: AggregateResult[][] = [[], [], []];
-          lgaResults.forEach((lga, i) => {
-            senateLGAGroups[Math.floor(i / Math.ceil(lgaResults.length / 3))]?.push(lga) ?? senateLGAGroups[2].push(lga);
+
+          // For senate/house: use gubernatorial LGAs as the geographic base for district subdivision
+          const geoLGAs = (selectedState ? geoLgaCache[selectedState] : null) ?? [];
+          const numDistricts = stateSenateDistricts.length || 3;
+          const geoLGAGroups: AggregateResult[][] = Array.from({ length: numDistricts }, () => []);
+          geoLGAs.forEach((lga, i) => {
+            const idx = Math.min(Math.floor(i / Math.ceil(geoLGAs.length / numDistricts)), numDistricts - 1);
+            geoLGAGroups[idx].push(lga);
           });
 
           return (
@@ -998,7 +1023,8 @@ export default function ElectionDashboard() {
                           const winner = lga.results[0];
                           const winnerParty = winner ? PARTY_MAP[winner.partyCode] : null;
                           const isExpanded = selectedLGA === lga.name;
-                          const puCacheKey = `${activeTab}_${activeYear}_${selectedState}_${lga.name}`;
+                          const _puElectionId = (activeTab === "senate" || activeTab === "house_reps") ? `presidential_${activeYear}` : `${activeTab}_${activeYear}`;
+                          const puCacheKey = `${_puElectionId}_${selectedState}_${lga.name}`;
                           const puRows = puResultsCache[puCacheKey] ?? [];
 
                           return (
@@ -1206,12 +1232,13 @@ export default function ElectionDashboard() {
               )}
 
               {/* ── Senatorial District tab content ── */}
-              {!selectedLGA && stateDetailTab === "senate" && (
+              {stateDetailTab === "senate" && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                        <th className="text-left px-4 py-3">Senatorial District</th>
+                        <th className="text-left px-4 py-3 w-8"></th>
+                        <th className="text-left px-2 py-3">Senatorial District</th>
                         {stateParties.map((pr) => {
                           const p = PARTY_MAP[pr.partyCode];
                           return (
@@ -1229,185 +1256,164 @@ export default function ElectionDashboard() {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {stateSenateDistricts.map((district, di) => {
-                        // Sum LGA votes for this district's geographic third
-                        const districtLGAs = lgaResults.length > 0
-                          ? senateLGAGroups[di] ?? []
-                          : [];
-
-                        // If no LGA data, fall back to state total / num_districts
+                        const divBy = stateSenateDistricts.length || 1;
                         const partyTotals: Record<string, number> = {};
-                        if (districtLGAs.length > 0) {
-                          for (const lga of districtLGAs) {
-                            for (const pr of lga.results) {
-                              partyTotals[pr.partyCode] = (partyTotals[pr.partyCode] ?? 0) + pr.votes;
-                            }
-                          }
-                        } else {
-                          const divBy = stateSenateDistricts.length || 1;
-                          for (const pr of stateParties) {
-                            partyTotals[pr.partyCode] = Math.round(pr.votes / divBy);
-                          }
+                        for (const pr of stateParties) {
+                          partyTotals[pr.partyCode] = Math.round(pr.votes / divBy);
                         }
-
                         const totalVotes = Object.values(partyTotals).reduce((s, v) => s + v, 0);
                         const winnerId = Object.entries(partyTotals).sort((a, b) => b[1] - a[1])[0]?.[0];
                         const winnerParty = winnerId ? PARTY_MAP[winnerId] : null;
-                        const isEstimated = districtLGAs.length === 0;
+                        const isExpanded = expandedDistrict === district.id;
+                        const districtLGAs = geoLGAGroups[di] ?? [];
 
                         return (
-                          <tr key={district.id} className="hover:bg-nigeria-light/30 transition-colors">
-                            <td className="px-4 py-3">
-                              <div className="font-semibold text-gray-800">{district.name}</div>
-                              {isEstimated && (
-                                <div className="text-xs text-amber-500 mt-0.5">Estimated from state total</div>
-                              )}
-                            </td>
-                            {stateParties.map((sp) => {
-                              const votes = partyTotals[sp.partyCode] ?? 0;
-                              const isWinner = sp.partyCode === winnerId;
-                              return (
-                                <td key={sp.partyCode} className={`px-3 py-3 text-right font-mono text-xs ${isWinner ? "font-bold text-gray-900" : "text-gray-500"}`}>
-                                  {votes.toLocaleString()}
+                          <>
+                            <tr
+                              key={district.id}
+                              className={`cursor-pointer transition-colors border-b border-gray-50 ${isExpanded ? "bg-nigeria-light/50" : "hover:bg-nigeria-light/30"}`}
+                              onClick={() => { setExpandedDistrict(isExpanded ? null : district.id); setSelectedLGA(null); }}
+                            >
+                              <td className="px-4 py-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                                  className={`w-4 h-4 text-nigeria-green transition-transform ${isExpanded ? "rotate-90" : ""}`}>
+                                  <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
+                                </svg>
+                              </td>
+                              <td className="px-2 py-3">
+                                <div className="font-semibold text-gray-800">{district.name}</div>
+                                <div className="text-xs text-gray-400 mt-0.5">{districtLGAs.length > 0 ? `${districtLGAs.length} LGAs` : "Click to expand"}</div>
+                              </td>
+                              {stateParties.map((sp) => {
+                                const votes = partyTotals[sp.partyCode] ?? 0;
+                                return (
+                                  <td key={sp.partyCode} className={`px-3 py-3 text-right font-mono text-xs ${sp.partyCode === winnerId ? "font-bold text-gray-900" : "text-gray-500"}`}>
+                                    {votes.toLocaleString()}
+                                  </td>
+                                );
+                              })}
+                              <td className="px-3 py-3 text-right font-mono text-xs font-semibold text-gray-700">{totalVotes.toLocaleString()}</td>
+                              <td className="px-3 py-3 text-center">
+                                {winnerParty ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-bold" style={{ backgroundColor: winnerParty.color }}>
+                                    {winnerParty.code}
+                                  </span>
+                                ) : "—"}
+                              </td>
+                            </tr>
+
+                            {isExpanded && (
+                              <tr key={`${district.id}-expand`}>
+                                <td colSpan={stateParties.length + 4} className="p-0 bg-gray-50/80">
+                                  {districtLGAs.length === 0 ? (
+                                    <div className="px-10 py-4 text-xs text-gray-400 italic">Loading LGAs…</div>
+                                  ) : (
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="bg-gray-100 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                                          <th className="text-left px-10 py-2 w-8"></th>
+                                          <th className="text-left px-2 py-2">LGA</th>
+                                          <th className="text-right px-3 py-2">Accredited</th>
+                                          <th className="text-right px-3 py-2">PUs</th>
+                                          <th className="text-center px-3 py-2">Status</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100">
+                                        {districtLGAs.map((lga) => {
+                                          const lgaExpanded = selectedLGA === lga.name;
+                                          const _puElId = `presidential_${activeYear}`;
+                                          const lgaPuKey = `${_puElId}_${selectedState}_${lga.name}`;
+                                          const lgaPuRows = puResultsCache[lgaPuKey] ?? [];
+                                          return (
+                                            <>
+                                              <tr
+                                                key={lga.id}
+                                                className={`cursor-pointer transition-colors ${lgaExpanded ? "bg-nigeria-light/60" : "hover:bg-white"}`}
+                                                onClick={() => setSelectedLGA(lgaExpanded ? null : lga.name)}
+                                              >
+                                                <td className="px-10 py-2">
+                                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                                                    className={`w-3.5 h-3.5 text-nigeria-green transition-transform ${lgaExpanded ? "rotate-90" : ""}`}>
+                                                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
+                                                  </svg>
+                                                </td>
+                                                <td className="px-2 py-2 font-medium text-gray-700">{lga.name}</td>
+                                                <td className="px-3 py-2 text-right font-mono text-gray-500">{lga.accreditedVoters.toLocaleString()}</td>
+                                                <td className="px-3 py-2 text-right text-gray-500">{lga.reportedPUs}/{lga.totalPUs}</td>
+                                                <td className="px-3 py-2 text-center">
+                                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold ${lga.status === "declared" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                                    {lga.status}
+                                                  </span>
+                                                </td>
+                                              </tr>
+                                              {lgaExpanded && (
+                                                <tr key={`${lga.id}-pu`}>
+                                                  <td colSpan={5} className="p-0 bg-white border-b border-gray-200">
+                                                    {lgaPuRows.length === 0 ? (
+                                                      <div className="px-14 py-3 text-xs text-gray-400 italic">Loading polling units…</div>
+                                                    ) : (
+                                                      <table className="w-full text-[11px]">
+                                                        <thead>
+                                                          <tr className="bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                                                            <th className="text-left px-14 py-1.5">Polling Unit</th>
+                                                            <th className="text-right px-3 py-1.5">Accredited</th>
+                                                            {stateParties.map(sp => (
+                                                              <th key={sp.partyCode} className="text-right px-3 py-1.5" style={{ color: PARTY_MAP[sp.partyCode]?.color }}>
+                                                                {sp.partyCode}
+                                                              </th>
+                                                            ))}
+                                                            <th className="text-right px-3 py-1.5">Total</th>
+                                                            <th className="text-center px-3 py-1.5">Winner</th>
+                                                          </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-50">
+                                                          {lgaPuRows.map((pu) => {
+                                                            const puWinner = pu.parties[0];
+                                                            const puWinnerParty = puWinner ? PARTY_MAP[puWinner.partyCode] : null;
+                                                            return (
+                                                              <tr key={pu.puCode} className={pu.overVoted ? "bg-red-50" : "hover:bg-gray-50"}>
+                                                                <td className="px-14 py-1">
+                                                                  <div className="font-medium text-gray-700">{pu.puName}</div>
+                                                                  <div className="text-gray-400 font-mono text-[10px]">{pu.puCode}</div>
+                                                                </td>
+                                                                <td className="px-3 py-1 text-right font-mono text-gray-500">{pu.accreditedVoters.toLocaleString()}</td>
+                                                                {stateParties.map(sp => {
+                                                                  const pr = pu.parties.find(p => p.partyCode === sp.partyCode);
+                                                                  return <td key={sp.partyCode} className={`px-3 py-1 text-right font-mono ${pr?.partyCode === puWinner?.partyCode ? "font-bold text-gray-900" : "text-gray-500"}`}>{pr ? pr.votes.toLocaleString() : "—"}</td>;
+                                                                })}
+                                                                <td className="px-3 py-1 text-right font-mono font-semibold text-gray-700">{pu.totalVotes.toLocaleString()}</td>
+                                                                <td className="px-3 py-1 text-center">
+                                                                  {puWinnerParty ? <span className="inline-flex px-1.5 py-0.5 rounded-full text-white text-[10px] font-bold" style={{ backgroundColor: puWinnerParty.color }}>{puWinnerParty.code}</span> : "—"}
+                                                                </td>
+                                                              </tr>
+                                                            );
+                                                          })}
+                                                        </tbody>
+                                                      </table>
+                                                    )}
+                                                  </td>
+                                                </tr>
+                                              )}
+                                            </>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  )}
                                 </td>
-                              );
-                            })}
-                            <td className="px-3 py-3 text-right font-mono text-xs font-semibold text-gray-700">
-                              {totalVotes.toLocaleString()}
-                            </td>
-                            <td className="px-3 py-3 text-center">
-                              {winnerParty ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-bold" style={{ backgroundColor: winnerParty.color }}>
-                                  {winnerParty.code}
-                                </span>
-                              ) : "—"}
-                            </td>
-                          </tr>
+                              </tr>
+                            )}
+                          </>
                         );
                       })}
                     </tbody>
                   </table>
-                  {lgaResults.length === 0 && (
-                    <div className="px-5 py-3 text-xs text-amber-600 bg-amber-50 border-t border-amber-100">
-                      District totals estimated from state data.
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           );
         })()}
 
-        {/* ── SENATE / HOUSE sub-view ──────────────────────────────────── */}
-        {(activeTab === "senate" || activeTab === "house_reps") && (
-          <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-nigeria-green/5 border-b border-nigeria-green/10 px-5 py-4">
-              <h3 className="text-nigeria-dark font-bold text-lg">
-                {activeTab === "senate"
-                  ? "Senatorial Districts Breakdown"
-                  : "Federal Constituency Breakdown"}
-              </h3>
-              <p className="text-gray-500 text-sm">
-                {activeTab === "senate"
-                  ? "109 senatorial districts across 36 states + FCT"
-                  : "360 federal constituencies across all 36 states + FCT"}
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                      {activeTab === "senate" ? "District" : "Constituency"}
-                    </th>
-                    <th className="text-left px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                      State
-                    </th>
-                    <th className="text-right px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                      Accredited
-                    </th>
-                    <th className="text-left px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                      Leader
-                    </th>
-                    <th className="text-right px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                      Lead Votes
-                    </th>
-                    <th className="text-right px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                      PUs Rep.
-                    </th>
-                    <th className="text-center px-3 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {activeTab === "senate"
-                    ? SENATORIAL_DISTRICTS.slice(0, 50).map((d) => {
-                        const r = activeResults.bySenatorialDistrict?.[d.id];
-                        if (!r) return null;
-                        const top = [...r.results].sort((a, b) => b.votes - a.votes)[0];
-                        const party = PARTY_MAP[top?.partyCode ?? ""];
-                        return (
-                          <tr key={d.id} className="hover:bg-nigeria-light/30 transition-colors">
-                            <td className="px-4 py-2.5 font-semibold text-gray-800">{d.name}</td>
-                            <td className="px-3 py-2.5 text-gray-600">{STATE_MAP[d.stateCode]?.name ?? d.stateCode}</td>
-                            <td className="px-3 py-2.5 text-right font-mono text-xs text-gray-600">{r.accreditedVoters.toLocaleString()}</td>
-                            <td className="px-3 py-2.5">
-                              {party ? (
-                                <span
-                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-white text-xs font-bold"
-                                  style={{ backgroundColor: party.color }}
-                                >
-                                  {party.code}
-                                </span>
-                              ) : "—"}
-                            </td>
-                            <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-gray-800">{top?.votes.toLocaleString() ?? "—"}</td>
-                            <td className="px-3 py-2.5 text-right text-xs text-gray-600">{r.reportedPUs}/{r.totalPUs}</td>
-                            <td className="px-3 py-2.5 text-center"><StatusBadge status={r.status} /></td>
-                          </tr>
-                        );
-                      })
-                    : Object.entries(activeResults.byConstituency ?? {})
-                        .slice(0, 60)
-                        .map(([id, r]) => {
-                          const top = [...r.results].sort((a, b) => b.votes - a.votes)[0];
-                          const party = PARTY_MAP[top?.partyCode ?? ""];
-                          return (
-                            <tr key={id} className="hover:bg-nigeria-light/30 transition-colors">
-                              <td className="px-4 py-2.5 font-semibold text-gray-800 text-xs">{r.name}</td>
-                              <td className="px-3 py-2.5 text-gray-600 text-xs">{STATE_MAP[r.stateCode ?? ""]?.name ?? r.stateCode}</td>
-                              <td className="px-3 py-2.5 text-right font-mono text-xs text-gray-600">{r.accreditedVoters.toLocaleString()}</td>
-                              <td className="px-3 py-2.5">
-                                {party ? (
-                                  <span
-                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-white text-xs font-bold"
-                                    style={{ backgroundColor: party.color }}
-                                  >
-                                    {party.code}
-                                  </span>
-                                ) : "—"}
-                              </td>
-                              <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-gray-800">{top?.votes.toLocaleString() ?? "—"}</td>
-                              <td className="px-3 py-2.5 text-right text-xs text-gray-600">{r.reportedPUs}/{r.totalPUs}</td>
-                              <td className="px-3 py-2.5 text-center"><StatusBadge status={r.status} /></td>
-                            </tr>
-                          );
-                        })}
-                </tbody>
-              </table>
-              {((activeTab === "senate" && SENATORIAL_DISTRICTS.length > 50) ||
-                (activeTab === "house_reps" && Object.keys(activeResults.byConstituency ?? {}).length > 60)) && (
-                <div className="px-4 py-3 text-center text-xs text-gray-400 border-t border-gray-100">
-                  Showing first {activeTab === "senate" ? 50 : 60} of{" "}
-                  {activeTab === "senate"
-                    ? SENATORIAL_DISTRICTS.length
-                    : Object.keys(activeResults.byConstituency ?? {}).length}{" "}
-                  records
-                </div>
-              )}
-            </div>
-          </div>
-        )}
         {/* ── FLAGGED OVER-VOTED RESULTS ───────────────────────────────── */}
         <div className="mt-6 bg-white rounded-2xl shadow-sm border border-red-100 overflow-hidden">
           <div className="bg-red-50 border-b border-red-100 px-5 py-4 flex items-center justify-between gap-4">

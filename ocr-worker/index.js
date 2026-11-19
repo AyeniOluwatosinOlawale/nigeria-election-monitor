@@ -9,6 +9,10 @@
  *   OPENROUTER_MODEL          — model to use (default: anthropic/claude-haiku-4-5)
  *   WORKER_CONCURRENCY        — max simultaneous Claude calls (default: 8)
  *   POLL_INTERVAL_MS          — ms between polls (default: 3000)
+ *
+ * IMPORTANT: Run supabase/ocr_rpc.sql in Supabase SQL Editor before deploying.
+ * That file creates the upsert_ocr_state_result, upsert_ocr_lga_result, and
+ * upsert_ocr_pu_result functions required for atomic vote accumulation.
  */
 
 const { createClient } = require("@supabase/supabase-js");
@@ -29,6 +33,30 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !OPENROUTER_API_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+// ─── Nigeria geo lookups ──────────────────────────────────────────────────────
+
+const STATE_ZONES = {
+  AB: "SE", AN: "SE", EB: "SE", EN: "SE", IM: "SE",
+  AK: "SS", BY: "SS", CR: "SS", DL: "SS", ED: "SS", RV: "SS",
+  BE: "NC", FC: "NC", KO: "NC", KW: "NC", NA: "NC", NI: "NC", PL: "NC",
+  EK: "SW", LA: "SW", OG: "SW", ON: "SW", OS: "SW", OY: "SW",
+  AD: "NE", BA: "NE", BO: "NE", GO: "NE", TA: "NE", YO: "NE",
+  JI: "NW", KD: "NW", KN: "NW", KT: "NW", KB: "NW", SO: "NW", ZA: "NW",
+};
+
+const STATE_NAMES = {
+  AB: "Abia",        AD: "Adamawa",     AK: "Akwa Ibom",  AN: "Anambra",
+  BA: "Bauchi",      BY: "Bayelsa",     BE: "Benue",      BO: "Borno",
+  CR: "Cross River", DL: "Delta",       EB: "Ebonyi",     ED: "Edo",
+  EK: "Ekiti",       EN: "Enugu",       FC: "FCT Abuja",  GO: "Gombe",
+  IM: "Imo",         JI: "Jigawa",      KD: "Kaduna",     KN: "Kano",
+  KT: "Katsina",     KB: "Kebbi",       KO: "Kogi",       KW: "Kwara",
+  LA: "Lagos",       NA: "Nasarawa",    NI: "Niger",      OG: "Ogun",
+  ON: "Ondo",        OS: "Osun",        OY: "Oyo",        PL: "Plateau",
+  RV: "Rivers",      SO: "Sokoto",      TA: "Taraba",     YO: "Yobe",
+  ZA: "Zamfara",
+};
 
 // ─── OCR prompt ───────────────────────────────────────────────────────────────
 
@@ -67,18 +95,13 @@ async function callOpenRouter(base64, mediaType) {
       model: OPENROUTER_MODEL,
       max_tokens: 1024,
       messages: [
-        {
-          role: "system",
-          content: OCR_SYSTEM_PROMPT,
-        },
+        { role: "system", content: OCR_SYSTEM_PROMPT },
         {
           role: "user",
           content: [
             {
               type: "image_url",
-              image_url: {
-                url: `data:${mediaType};base64,${base64}`,
-              },
+              image_url: { url: `data:${mediaType};base64,${base64}` },
             },
             {
               type: "text",
@@ -113,6 +136,94 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Normalise a polling unit name into a stable short code for the pu_code column.
+// Uses the job's pu_code if already set, otherwise derives from the OCR name.
+function derivePuCode(job, ocrPuName) {
+  if (job.pu_code) return job.pu_code;
+  if (!ocrPuName) return null;
+  return ocrPuName.trim().toUpperCase().replace(/\s+/g, "_").slice(0, 100);
+}
+
+// ─── Write results using atomic RPC functions ─────────────────────────────────
+//
+// Each OCR job represents ONE polling unit's result sheet.
+// We increment state/LGA totals atomically to avoid overwriting other PUs.
+// PU results are upserted with last-write-wins (safe to re-process).
+
+async function writeResultsToSupabase(job, result, overVoted) {
+  const partyRows = result.party_results ?? [];
+  if (partyRows.length === 0) return;
+
+  const stateCode  = job.state_code;
+  const stateName  = STATE_NAMES[stateCode] ?? result.state ?? stateCode;
+  const zone       = STATE_ZONES[stateCode] ?? "NC";
+  const lgaName    = job.lga_name ?? result.lga ?? null;
+  const wardName   = job.ward_name ?? result.ward ?? null;
+  const puName     = result.polling_unit ?? null;
+  const puCode     = derivePuCode(job, puName);
+  const accredited = result.accredited_voters ?? 0;
+
+  // ── 1. State-level accumulation ───────────────────────────────────────────
+  for (const pr of partyRows) {
+    const { error } = await supabase.rpc("upsert_ocr_state_result", {
+      p_election_id: job.election_id,
+      p_state_code:  stateCode,
+      p_state_name:  stateName,
+      p_zone:        zone,
+      p_party_code:  pr.party,
+      p_votes:       pr.votes ?? 0,
+      p_accredited:  accredited,
+    });
+    if (error) {
+      console.error(`[${job.id}] state RPC error (${pr.party}):`, error.message);
+      if (error.message.includes("does not exist")) {
+        console.error("  → Run supabase/ocr_rpc.sql in Supabase SQL Editor first.");
+      }
+    }
+  }
+
+  // ── 2. LGA-level accumulation (requires LGA name) ─────────────────────────
+  if (lgaName) {
+    for (const pr of partyRows) {
+      const { error } = await supabase.rpc("upsert_ocr_lga_result", {
+        p_election_id: job.election_id,
+        p_state_code:  stateCode,
+        p_lga_name:    lgaName,
+        p_party_code:  pr.party,
+        p_votes:       pr.votes ?? 0,
+        p_accredited:  accredited,
+      });
+      if (error) {
+        console.error(`[${job.id}] LGA RPC error (${pr.party}):`, error.message);
+      }
+    }
+  }
+
+  // ── 3. PU-level upsert (requires both LGA name and PU code) ──────────────
+  if (lgaName && puCode) {
+    for (const pr of partyRows) {
+      const { error } = await supabase.rpc("upsert_ocr_pu_result", {
+        p_election_id: job.election_id,
+        p_state_code:  stateCode,
+        p_lga_name:    lgaName,
+        p_pu_code:     puCode,
+        p_pu_name:     puName ?? puCode,
+        p_party_code:  pr.party,
+        p_votes:       pr.votes ?? 0,
+        p_accredited:  accredited,
+        p_over_voted:  overVoted,
+        p_reg_area:    wardName,
+      });
+      if (error) {
+        console.error(`[${job.id}] PU RPC error (${pr.party}):`, error.message);
+      }
+    }
+  }
+
+  const levels = ["state", lgaName && "LGA", lgaName && puCode && "PU"].filter(Boolean).join(", ");
+  console.log(`[${job.id}] Wrote ${partyRows.length} party rows at ${levels} level`);
+}
+
 // ─── Core job processor ───────────────────────────────────────────────────────
 
 async function processJob(job) {
@@ -139,7 +250,7 @@ async function processJob(job) {
     // 3. Parse response
     const result = parseClaudeResponse(rawText);
 
-    // 4. Check over-voting (INEC rule)
+    // 4. Check over-voting (INEC rule: total votes must not exceed accredited voters)
     const totalVotes = (result.party_results ?? []).reduce((sum, r) => sum + (r.votes ?? 0), 0);
     const overVoted = typeof result.accredited_voters === "number" && totalVotes > result.accredited_voters;
 
@@ -147,9 +258,9 @@ async function processJob(job) {
       console.warn(`[${job.id}] FLAGGED — over-voted: ${totalVotes} > ${result.accredited_voters}`);
     }
 
-    // 5. Write to election results table (if not over-voted)
-    if (!overVoted && job.state_code && job.election_id && result.party_results?.length > 0) {
-      await writeResultsToSupabase(job, result);
+    // 5. Write to election results tables
+    if (job.state_code && job.election_id && (result.party_results?.length ?? 0) > 0) {
+      await writeResultsToSupabase(job, result, overVoted);
     }
 
     // 6. Mark done
@@ -181,33 +292,6 @@ async function processJob(job) {
   }
 }
 
-// ─── Write extracted results into the main results table ─────────────────────
-
-async function writeResultsToSupabase(job, result) {
-  const rows = (result.party_results ?? []).map((pr) => ({
-    election_id: job.election_id,
-    state_code: job.state_code,
-    state_name: result.state ?? job.state_code,
-    party_code: pr.party,
-    votes: pr.votes ?? 0,
-    accredited_voters: result.accredited_voters ?? 0,
-    status: "collating",
-    source: "ocr",
-  }));
-
-  if (rows.length === 0) return;
-
-  const { error } = await supabase
-    .from("ng_election_state_results")
-    .upsert(rows, { onConflict: "election_id,state_code,party_code" });
-
-  if (error) {
-    console.error(`[${job.id}] Failed to write results:`, error.message);
-  } else {
-    console.log(`[${job.id}] Wrote ${rows.length} party rows to ng_election_state_results`);
-  }
-}
-
 // ─── Polling loop ─────────────────────────────────────────────────────────────
 
 let activeJobs = 0;
@@ -236,10 +320,11 @@ async function poll() {
 // ─── Startup ──────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`OCR Worker started`);
+  console.log("OCR Worker started");
   console.log(`  Model:       ${OPENROUTER_MODEL}`);
   console.log(`  Concurrency: ${CONCURRENCY}`);
   console.log(`  Poll every:  ${POLL_INTERVAL_MS}ms`);
+  console.log("  Data source: INEC IREV result sheets via OCR only");
 
   // Reset jobs stuck in "processing" from a previous crashed worker
   const { count } = await supabase
