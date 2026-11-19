@@ -87,7 +87,7 @@ async function callOpenRouter(base64, mediaType) {
   // PDFs use the document content block; images use image_url
   const isPdf = mediaType === "application/pdf";
   const contentBlock = isPdf
-    ? { type: "text", text: `data:application/pdf;base64,${base64}` }
+    ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } }
     : { type: "image_url", image_url: { url: `data:${mediaType};base64,${base64}` } };
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
