@@ -356,14 +356,18 @@ function groupRowsByState(
       percentage: totalVotes > 0 ? (r.votes / totalVotes) * 100 : 0,
     }));
 
+    const maxReportedPUs    = Math.max(...stateRows.map(r => r.reported_pus ?? 0));
+    const maxTotalPUs       = Math.max(...stateRows.map(r => r.total_pus ?? 0));
+    const maxAccredited     = Math.max(...stateRows.map(r => r.accredited_voters ?? 0));
+
     result[stateCode] = {
       level: 'state',
       id: stateCode,
       name: ref.state_name,
       stateCode,
-      totalPUs: ref.total_pus,
-      reportedPUs: ref.reported_pus,
-      accreditedVoters: ref.accredited_voters,
+      totalPUs: maxTotalPUs,
+      reportedPUs: maxReportedPUs,
+      accreditedVoters: maxAccredited,
       results: withPct,
       status: ref.status,
       leadingParty: withPct[0]?.partyCode,
