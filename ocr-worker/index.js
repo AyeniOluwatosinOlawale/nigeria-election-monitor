@@ -555,11 +555,11 @@ async function main() {
 
   if (count > 0) console.log(`Reset ${count} stuck jobs back to "pending"`);
 
-  // Reset any jobs stuck in "failed" or "processing" from a previous run
+  // Reset failed jobs at startup
   await resetFailedJobs();
 
-  // Auto-populate queue from INEC IREV for all 4 elections
-  await scrapeAllIrev();
+  // Run IREV scrape in background — OCR polling starts immediately in parallel
+  scrapeAllIrev().catch((e) => console.error("[IREV] scrape error:", e.message));
 
   // During live elections: re-scrape periodically to catch new uploads
   if (IREV_POLL_MS > 0) {
@@ -570,6 +570,7 @@ async function main() {
   // Reset failed jobs every 2 hours automatically — no manual SQL needed
   setInterval(resetFailedJobs, 2 * 60 * 60 * 1000);
 
+  // OCR polling loop runs immediately alongside the scrape
   while (true) {
     await poll();
     await sleep(POLL_INTERVAL_MS);
