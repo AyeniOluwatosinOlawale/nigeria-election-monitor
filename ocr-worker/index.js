@@ -318,6 +318,18 @@ async function processJob(job) {
   } catch (err) {
     console.error(`[${job.id}] Error:`, err.message);
 
+    // Credit errors (402) don't count against retry limit — re-queue without penalty
+    const isCreditsError = err.message.includes("402") || err.message.includes("credits") || err.message.includes("afford");
+    if (isCreditsError) {
+      await supabase.from("ocr_queue").update({
+        status: "pending",
+        error: err.message,
+        started_at: null,
+      }).eq("id", job.id);
+      console.warn(`[${job.id}] Credits error — re-queued without retry penalty`);
+      return;
+    }
+
     const shouldRetry = job.retry_count < MAX_RETRIES;
 
     await supabase.from("ocr_queue").update({
@@ -332,6 +344,16 @@ async function processJob(job) {
       console.log(`[${job.id}] Will retry (attempt ${job.retry_count + 1}/${MAX_RETRIES})`);
     }
   }
+}
+
+// Auto-reset failed jobs back to pending so they're retried without manual SQL
+async function resetFailedJobs() {
+  const { count } = await supabase
+    .from("ocr_queue")
+    .update({ status: "pending", retry_count: 0, error: null, started_at: null })
+    .eq("status", "failed")
+    .select("*", { count: "exact", head: true });
+  if (count > 0) console.log(`[auto-reset] Reset ${count} failed jobs back to pending`);
 }
 
 // ─── IREV scraper ─────────────────────────────────────────────────────────────
@@ -533,6 +555,9 @@ async function main() {
 
   if (count > 0) console.log(`Reset ${count} stuck jobs back to "pending"`);
 
+  // Reset any jobs stuck in "failed" or "processing" from a previous run
+  await resetFailedJobs();
+
   // Auto-populate queue from INEC IREV for all 4 elections
   await scrapeAllIrev();
 
@@ -541,6 +566,9 @@ async function main() {
     console.log(`  IREV re-scrape: every ${IREV_POLL_MS / 1000}s`);
     setInterval(scrapeAllIrev, IREV_POLL_MS);
   }
+
+  // Reset failed jobs every 2 hours automatically — no manual SQL needed
+  setInterval(resetFailedJobs, 2 * 60 * 60 * 1000);
 
   while (true) {
     await poll();
