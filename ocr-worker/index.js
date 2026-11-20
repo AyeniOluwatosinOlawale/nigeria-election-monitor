@@ -447,6 +447,35 @@ async function scrapeIrevElection(election) {
   }
 
   console.log(`[IREV] ${election.label}: queued ${totalQueued} result sheets`);
+
+  // Seed total_pus on ng_election_state_results from ocr_queue counts
+  await seedStatePuCounts(election.key, election.label);
+}
+
+// After scraping, set total_pus per state so the dashboard denominator is correct
+async function seedStatePuCounts(electionKey, label) {
+  const { data, error } = await supabase
+    .from("ocr_queue")
+    .select("state_code")
+    .eq("election_id", electionKey)
+    .not("state_code", "is", null);
+
+  if (error || !data) return;
+
+  const counts = {};
+  for (const { state_code } of data) {
+    counts[state_code] = (counts[state_code] ?? 0) + 1;
+  }
+
+  for (const [sc, n] of Object.entries(counts)) {
+    await supabase
+      .from("ng_election_state_results")
+      .update({ total_pus: n })
+      .eq("election_id", electionKey)
+      .eq("state_code", sc);
+  }
+
+  console.log(`[IREV] ${label}: seeded total_pus for ${Object.keys(counts).length} states`);
 }
 
 async function scrapeAllIrev() {
